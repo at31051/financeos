@@ -2050,15 +2050,8 @@
         <div class="page-subtitle">CATEGORIES · TRENDS · BREAKDOWN · APR 2026</div>
       </div>
 
-      <!-- Month selector -->
-      <div style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap;">
-        <button class="month-tab" onclick="switchMonth(this,'Nov')" data-month="Nov">Nov</button>
-        <button class="month-tab" onclick="switchMonth(this,'Dec')" data-month="Dec">Dec</button>
-        <button class="month-tab" onclick="switchMonth(this,'Jan')" data-month="Jan">Jan</button>
-        <button class="month-tab" onclick="switchMonth(this,'Feb')" data-month="Feb">Feb</button>
-        <button class="month-tab" onclick="switchMonth(this,'Mar')" data-month="Mar">Mar</button>
-        <button class="month-tab active" onclick="switchMonth(this,'Apr')" data-month="Apr">Apr</button>
-      </div>
+      <!-- Month selector — dynamically populated by renderSpendingMonthTabs() -->
+      <div id="s3-month-tabs" style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap;"></div>
 
       <!-- Top metrics -->
       <div class="metrics-row" style="margin-bottom:20px;">
@@ -2871,6 +2864,9 @@
         <div class="page-subtitle">FULL HISTORY · FILTER · SEARCH · EXPORT</div>
       </div>
 
+      <!-- Month tabs — dynamically populated by renderTxMonthTabs() -->
+      <div id="tx-month-tabs" style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap;"></div>
+
       <!-- Summary metrics -->
       <div class="metrics-row" style="margin-bottom:20px;">
         <div class="metric-card red">
@@ -2974,15 +2970,7 @@
             <option value="income">Income</option>
           </select>
 
-          <select id="tx-filter-month" onchange="renderTxPage()" style="background:var(--bg-hover); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-family:var(--font-mono); font-size:10px; color:var(--text-secondary); outline:none; cursor:pointer;">
-            <option value="all">All months</option>
-            <option value="Apr 2026">Apr 2026</option>
-            <option value="Mar 2026">Mar 2026</option>
-            <option value="Feb 2026">Feb 2026</option>
-            <option value="Jan 2026">Jan 2026</option>
-            <option value="Dec 2025">Dec 2025</option>
-            <option value="Nov 2025">Nov 2025</option>
-          </select>
+          <select id="tx-filter-month" onchange="renderTxPage()" style="display:none;"></select>
 
           <button onclick="clearTxFilters()" class="topbar-btn" style="flex-shrink:0;">✕ Clear</button>
           <button onclick="exportTxCSV()" class="topbar-btn" style="flex-shrink:0;">↓ Export CSV</button>
@@ -5326,14 +5314,75 @@ const txJarOverride = {};
 // Track deduction history for undo: txId -> { jarKey, amt }
 const deductHistory = {};
 
+// Build month label e.g. 'Apr' → 'Apr 2026'
+function monthLabel(m) {
+  return m + ' ' + (['Nov','Dec'].includes(m) ? '2025' : '2026');
+}
+
+// Render spending page month tabs — only months with data
+function renderSpendingMonthTabs() {
+  const container = document.getElementById('s3-month-tabs');
+  if (!container) return;
+
+  const months = monthOrder.filter(m => spendingData[m]);
+  if (months.length === 0) { container.innerHTML = ''; return; }
+
+  // Pick active month: prefer current activeMonth if it has data, else last with data
+  if (!spendingData[activeMonth]) {
+    activeMonth = months[months.length - 1];
+  }
+
+  container.innerHTML = months.map(m => `
+    <button class="month-tab ${m === activeMonth ? 'active' : ''}"
+      onclick="switchMonth(this,'${m}')" data-month="${m}">${m}</button>
+  `).join('');
+}
+
+// Render transaction page month tabs — all months with transactions
+let activeTxMonth = 'all';
+
+function renderTxMonthTabs() {
+  const container = document.getElementById('tx-month-tabs');
+  if (!container) return;
+
+  // Collect all months from manualTransactions
+  const seen = new Set();
+  manualTransactions.forEach(tx => { if (tx.month) seen.add(tx.month); });
+
+  // Sort in reverse chronological order using monthOrder
+  const months = [...monthOrder].reverse().filter(m => seen.has(m));
+
+  if (months.length === 0) { container.innerHTML = ''; return; }
+
+  container.innerHTML = `
+    <button class="month-tab ${activeTxMonth === 'all' ? 'active' : ''}"
+      onclick="switchTxMonth('all', this)">All</button>
+    ${months.map(m => `
+      <button class="month-tab ${activeTxMonth === m ? 'active' : ''}"
+        onclick="switchTxMonth('${m}', this)">${m}</button>
+    `).join('')}
+  `;
+}
+
+function switchTxMonth(month, el) {
+  activeTxMonth = month;
+  document.querySelectorAll('#tx-month-tabs .month-tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  // Sync hidden dropdown for getFilteredTxList
+  const sel = document.getElementById('tx-filter-month');
+  if (sel) { sel.innerHTML = `<option value="${month === 'all' ? 'all' : monthLabel(month)}">`; sel.value = month === 'all' ? 'all' : monthLabel(month); }
+  renderTxPage();
+}
+
 function switchMonth(el, month) {
-  document.querySelectorAll('.month-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
   activeMonth = month;
+  document.querySelectorAll('#s3-month-tabs .month-tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
   renderSpendingPage();
 }
 
 function renderSpendingPage() {
+  renderSpendingMonthTabs();
   const d = spendingData[activeMonth];
 
   // ── Empty state: no spending data yet ──
@@ -7728,27 +7777,28 @@ function deleteManualTx(id) {
 }
 
 function clearTxFilters() {
-  const ids = ['tx-search','tx-filter-cat','tx-filter-type','tx-filter-month'];
+  const ids = ['tx-search','tx-filter-cat','tx-filter-type'];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = el.tagName === 'SELECT' ? 'all' : ''; });
+  activeTxMonth = 'all';
   renderTxPage();
 }
 
 function getFilteredTxList() {
-  const search    = (document.getElementById('tx-search')?.value || '').toLowerCase();
-  const catFilter = document.getElementById('tx-filter-cat')?.value || 'all';
+  const search     = (document.getElementById('tx-search')?.value || '').toLowerCase();
+  const catFilter  = document.getElementById('tx-filter-cat')?.value || 'all';
   const typeFilter = document.getElementById('tx-filter-type')?.value || 'all';
-  const monthFilter = document.getElementById('tx-filter-month')?.value || 'all';
 
   return buildTxMasterList().filter(tx => {
     if (search && !tx.desc.toLowerCase().includes(search) && !tx.cat.toLowerCase().includes(search)) return false;
     if (catFilter !== 'all' && tx.cat !== catFilter) return false;
     if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
-    if (monthFilter !== 'all' && !tx.month.includes(monthFilter.split(' ')[0])) return false;
+    if (activeTxMonth !== 'all' && tx.month !== activeTxMonth) return false;
     return true;
   });
 }
 
 function renderTxPage() {
+  renderTxMonthTabs();
   const filtered = getFilteredTxList();
   const list     = document.getElementById('tx-full-list');
   if (!list) return;
@@ -7764,12 +7814,21 @@ function renderTxPage() {
       const canDelete = tx.source === 'manual' || tx.source === 'import';
 
       return `
-        <div class="acc-row" style="display:grid; grid-template-columns:100px 1fr 120px 110px 130px 70px 70px; gap:0; padding:9px 12px; margin-bottom:4px;">
+        <div class="acc-row" style="display:grid; grid-template-columns:100px 1fr 130px 120px 140px 70px 70px; gap:0; padding:9px 12px; margin-bottom:4px; align-items:center;">
           <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-tertiary);">${normDateDisplay(tx.date)}</div>
-          <div style="font-size:12px; font-weight:500; color:var(--text-primary);">${tx.desc}</div>
-          <div><span style="font-family:var(--font-mono); font-size:10px; padding:2px 7px; border-radius:10px; background:${color}18; color:${color}; border:1px solid ${color}30;">${tx.cat}</span></div>
-          <div style="font-family:var(--font-mono); font-size:12px; font-weight:500; color:${amtColor}; text-align:right;">${amtPrefix}HK$${tx.amt.toLocaleString()}</div>
-          <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-secondary); display:flex; align-items:center; gap:4px; overflow:hidden;">
+          <div style="font-size:12px; font-weight:500; color:var(--text-primary); padding-right:8px;">${tx.desc}</div>
+          <div>
+            <select onchange="updateTxCat('${tx.id}', this.value)"
+              style="font-family:var(--font-mono); font-size:10px; padding:2px 6px; border-radius:10px;
+                     background:${color}18; color:${color}; border:1px solid ${color}30;
+                     cursor:pointer; outline:none; max-width:120px;">
+              ${[...Object.keys(catColors)].map(c =>
+                `<option value="${c}" ${c === tx.cat ? 'selected' : ''}>${c}</option>`
+              ).join('')}
+            </select>
+          </div>
+          <div style="font-family:var(--font-mono); font-size:12px; font-weight:500; color:${amtColor}; text-align:right; padding-right:16px;">${amtPrefix}HK$${tx.amt.toLocaleString()}</div>
+          <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-secondary); display:flex; align-items:center; gap:4px; overflow:hidden; padding-left:4px;">
             <span style="opacity:0.5; font-size:9px;">${isIncome ? '↑' : '↓'}</span>
             <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tx.account || 'Cash'}</span>
           </div>
@@ -7804,6 +7863,37 @@ function renderTxPage() {
   setEl('tx-shown-count', filtered.length);
   setEl('tx-footer-out', 'Out: HK$' + outflow.toLocaleString());
   setEl('tx-footer-in',  'In: HK$' + inflow.toLocaleString());
+}
+
+function updateTxCat(txId, newCat) {
+  const tx = manualTransactions.find(t => t.id === txId);
+  if (!tx) return;
+
+  const oldCat = tx.cat;
+  tx.cat = newCat;
+
+  // Update spendingData if it's an expense
+  if (tx.type === 'expense' && tx.month) {
+    const mk = tx.month; // e.g. 'Apr'
+    if (spendingData[mk]) {
+      const validCat = c => validSpendingCats.has(c) ? c : 'Other';
+      const oldKey = validCat(oldCat);
+      const newKey = validCat(newCat);
+      if (spendingData[mk].cats[oldKey]) {
+        spendingData[mk].cats[oldKey] = Math.max(0, (spendingData[mk].cats[oldKey] || 0) - tx.amt);
+      }
+      spendingData[mk].cats[newKey] = (spendingData[mk].cats[newKey] || 0) + tx.amt;
+    }
+    // Also update transactions[] mirror
+    if (transactions[tx.month]) {
+      const mirror = transactions[tx.month].find(t => t.desc === tx.desc && t.amt === tx.amt);
+      if (mirror) mirror.cat = newCat;
+    }
+  }
+
+  fosSave();
+  renderSpendingPage();
+  showToast('✓ Category updated to ' + newCat);
 }
 
 function exportTxCSV() {
@@ -8881,6 +8971,9 @@ function processSyncRows(allRows, mortgageUpdates) {
   const seenTabs  = new Map(); // tabName → accountInfo
 
   allRows.forEach(row => {
+    // Skip internal FinanceOS system rows (e.g. _AppData cloud sync tab)
+    if (row.accountTab === '_AppData' || row.desc === 'appData' || String(row.accountTab).startsWith('_')) return;
+
     const key = syncDedupKey(row);
     if (existingKeys.has(key)) {
       syncDupeCount++;
@@ -9107,10 +9200,13 @@ function confirmSyncImport() {
       source:  'import',
     });
 
-    // Sync to spendingData (expenses only)
-    if (type === 'expense' && spendingData[monthKey]) {
+    // Sync to spendingData (expenses only) — auto-create month entry if needed
+    if (type === 'expense') {
       const spendCat = validSpendingCats.has(cat) ? cat : 'Other';
       const days = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
+      if (!spendingData[monthKey]) {
+        spendingData[monthKey] = { total: 0, daily: 0, txCount: 0, vsLast: 0, cats: {} };
+      }
       spendingData[monthKey].total   = (spendingData[monthKey].total || 0) + amt;
       spendingData[monthKey].txCount = (spendingData[monthKey].txCount || 0) + 1;
       spendingData[monthKey].daily   = Math.round(spendingData[monthKey].total / days);
