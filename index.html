@@ -5292,13 +5292,19 @@ const catColors = {
 
 // Jar suggestion map per category
 const catJarMap = {
-  Housing:        'finance',
-  'Food & Dining':'finance',
-  Transport:      'finance',
-  Entertainment:  'play',
-  Utilities:      'finance',
-  Pet:            'pet',
-  Other:          'finance',
+  Housing:          'finance',
+  'Food & Dining':  'home',       // daily food = Home jar
+  Transport:        'finance',
+  Shopping:         'home',       // daily shopping = Home jar
+  Utilities:        'finance',
+  Entertainment:    'play',
+  Travel:           'play',
+  Health:           'finance',
+  Pet:              'pet',
+  Insurance:        'finance',    // insurance repayment = Finance jar
+  'Loan Repayment': 'finance',    // loan repayment = Finance jar
+  'Finance Charge': 'finance',    // CC finance charges = Finance jar
+  Other:            'home',       // misc daily = Home jar
 };
 
 const monthOrder = ['Nov','Dec','Jan','Feb','Mar','Apr'];
@@ -6501,7 +6507,10 @@ function renderBankAccounts() {
           </div>
           <div><span class="days-badge ok" style="background:${color}18; color:${color}; border-color:${color}30;">${a.type}</span></div>
           <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary);">····${a.last4}</div>
-          <div style="font-family:var(--font-mono); font-size:13px; font-weight:500; color:var(--green); text-align:right;">HK$${Number(a.balance).toLocaleString()}</div>
+          <div style="text-align:right;">
+            <div style="font-family:var(--font-mono); font-size:13px; font-weight:500; color:var(--green);">HK$${Number(a.balance).toLocaleString()}</div>
+            ${a.balanceUpdatedAt ? `<div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); margin-top:2px;">↻ ${a.balanceUpdatedAt}</div>` : ''}
+          </div>
           <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); text-align:center;">${a.currency}</div>
           <div style="text-align:right; display:flex; gap:4px; justify-content:flex-end;">
             <button onclick="openBankEdit(${a.id})" style="background:var(--bg-hover); border:1px solid var(--border); color:var(--text-secondary); padding:4px 8px; border-radius:6px; font-family:var(--font-mono); font-size:10px; cursor:pointer;">✎</button>
@@ -6553,10 +6562,14 @@ function renderCreditCards() {
           <div>
             <div style="font-size:12px; font-weight:600; color:var(--text-primary);">💳 ${c.name}</div>
             ${c.statementDay ? `<div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary);">Statement day: ${c.statementDay}</div>` : ''}
+            ${c.dueDate ? `<div style="font-family:var(--font-mono); font-size:9px; color:var(--amber);">Due: ${c.dueDate}</div>` : ''}
           </div>
           <div style="font-size:11px; color:var(--text-secondary);">${c.bank}</div>
           <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-tertiary);">····${c.last4}</div>
-          <div style="font-family:var(--font-mono); font-size:13px; font-weight:500; color:var(--red); text-align:right;">HK$${Number(c.outstanding).toLocaleString()}</div>
+          <div style="text-align:right;">
+            <div style="font-family:var(--font-mono); font-size:13px; font-weight:500; color:var(--red);">HK$${Number(c.outstanding).toLocaleString()}</div>
+            ${c.balanceUpdatedAt ? `<div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); margin-top:2px;">↻ ${c.balanceUpdatedAt}</div>` : ''}
+          </div>
           <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-secondary); text-align:right;">HK$${Number(c.limit).toLocaleString()}</div>
           <div style="text-align:center;">
             <div style="font-family:var(--font-mono); font-size:10px; color:${utilCol}; margin-bottom:3px;">${util.toFixed(0)}%</div>
@@ -6568,7 +6581,7 @@ function renderCreditCards() {
           </div>
         </div>
         <div id="card-edit-${c.id}" style="display:none; background:var(--bg-hover); border:1px solid var(--border-accent); border-radius:8px; padding:12px; margin-top:-4px; margin-bottom:6px;">
-          <div style="display:grid; grid-template-columns:1fr 1fr 80px 100px 110px 80px; gap:8px; margin-bottom:8px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 80px 100px 110px 100px 80px; gap:8px; margin-bottom:8px;">
             <div><div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); margin-bottom:3px;">CARD NAME</div>
               <input id="ce-name-${c.id}" value="${c.name}" style="width:100%; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-size:12px; color:var(--text-primary); outline:none;"></div>
             <div><div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); margin-bottom:3px;">ISSUING BANK</div>
@@ -6579,6 +6592,8 @@ function renderCreditCards() {
               <input id="ce-limit-${c.id}" type="number" value="${c.limit}" style="width:100%; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-family:var(--font-mono); font-size:12px; color:var(--text-primary); outline:none;"></div>
             <div><div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); margin-bottom:3px;">OUTSTANDING</div>
               <input id="ce-out-${c.id}" type="number" value="${c.outstanding}" style="width:100%; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-family:var(--font-mono); font-size:12px; color:var(--text-primary); outline:none;"></div>
+            <div><div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); margin-bottom:3px;">DUE DATE</div>
+              <input id="ce-due-${c.id}" value="${c.dueDate||''}" placeholder="e.g. 10 May" style="width:100%; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-family:var(--font-mono); font-size:11px; color:var(--text-primary); outline:none;"></div>
             <div><div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); margin-bottom:3px;">STMT DAY</div>
               <input id="ce-sday-${c.id}" value="${c.statementDay||''}" placeholder="15" style="width:100%; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-family:var(--font-mono); font-size:12px; color:var(--text-primary); outline:none;"></div>
           </div>
@@ -6753,6 +6768,7 @@ function saveCardEdit(id) {
   c.last4        = document.getElementById('ce-last4-' + id)?.value.trim() || c.last4;
   c.limit        = parseFloat(document.getElementById('ce-limit-' + id)?.value) || 0;
   c.outstanding  = parseFloat(document.getElementById('ce-out-' + id)?.value) || 0;
+  c.dueDate      = document.getElementById('ce-due-' + id)?.value.trim() || c.dueDate || '';
   c.statementDay = document.getElementById('ce-sday-' + id)?.value.trim() || '';
   renderCreditCards();
   refreshCardDropdowns();
@@ -8773,10 +8789,11 @@ function confirmImport() {
 // SYNC FROM SHEET — Stage 8F
 // ══════════════════════════════════════════════
 
-let syncFetchedRows  = [];   // all rows from Sheet (after dedup)
-let syncNewAccounts  = [];   // accounts to auto-create
-let syncDupeCount    = 0;
-let syncMortgageUpdates = []; // mortgage balance updates from consolidated statements
+let syncFetchedRows     = [];   // all rows from Sheet (after dedup)
+let syncNewAccounts     = [];   // accounts to auto-create
+let syncDupeCount       = 0;
+let syncMortgageUpdates = [];   // mortgage balance updates from consolidated statements
+let syncAccountBalances = [];   // account balances from _AccountBalances tab
 
 // ── Modal open/close ──
 function openSyncModal() {
@@ -8787,9 +8804,10 @@ function openSyncModal() {
 
 function closeSyncModal() {
   document.getElementById('sync-modal-overlay').style.display = 'none';
-  syncFetchedRows = [];
-  syncNewAccounts = [];
+  syncFetchedRows     = [];
+  syncNewAccounts     = [];
   syncMortgageUpdates = [];
+  syncAccountBalances = [];
 }
 
 function showSyncStep(step) {
@@ -8880,14 +8898,15 @@ async function startSheetFetch() {
 
     msgEl.textContent = `Got ${data.transactions.length} transactions from ${(data.accounts||[]).length} account(s). Checking for duplicates…`;
 
-    const mortgageUpdates = Array.isArray(data.mortgageUpdates) ? data.mortgageUpdates : [];
+    const mortgageUpdates  = Array.isArray(data.mortgageUpdates)  ? data.mortgageUpdates  : [];
+    const accountBalances  = Array.isArray(data.accountBalances)  ? data.accountBalances  : [];
 
-    if (data.transactions.length === 0 && mortgageUpdates.length === 0) {
+    if (data.transactions.length === 0 && mortgageUpdates.length === 0 && accountBalances.length === 0) {
       throw new Error('API returned 0 transactions. Check that your Sheet tabs have data.');
     }
 
-    console.log('FinanceOS API response:', { accounts: data.accounts, totalRows: data.totalRows, mortgageUpdates });
-    processSyncRows(data.transactions, mortgageUpdates);
+    console.log('FinanceOS API response:', { accounts: data.accounts, totalRows: data.totalRows, mortgageUpdates, accountBalances: accountBalances.length });
+    processSyncRows(data.transactions, mortgageUpdates, accountBalances);
 
   } catch (err) {
     showSyncStep('input');
@@ -8955,7 +8974,7 @@ function getExistingTxKeys() {
 }
 
 // ── Process fetched rows: dedup, detect new accounts, show review ──
-function processSyncRows(allRows, mortgageUpdates) {
+function processSyncRows(allRows, mortgageUpdates, accountBalances) {
   const existingKeys = getExistingTxKeys();
 
   // Build set of existing account names (tab names we already know about)
@@ -8964,10 +8983,11 @@ function processSyncRows(allRows, mortgageUpdates) {
     ...creditCards.map(c => c.name.toLowerCase().trim()),
   ]);
 
-  syncFetchedRows = [];
-  syncNewAccounts = [];
-  syncDupeCount   = 0;
+  syncFetchedRows     = [];
+  syncNewAccounts     = [];
+  syncDupeCount       = 0;
   syncMortgageUpdates = mortgageUpdates || [];
+  syncAccountBalances = Array.isArray(accountBalances) ? accountBalances : [];
   const seenTabs  = new Map(); // tabName → accountInfo
 
   allRows.forEach(row => {
@@ -9217,6 +9237,48 @@ function confirmSyncImport() {
     }
   });
 
+  // ── Apply account balance updates from _AccountBalances ──
+  let balMsg = '';
+  if (syncAccountBalances && syncAccountBalances.length > 0) {
+    let balUpdated = 0;
+    syncAccountBalances.forEach(ab => {
+      const last4   = String(ab.accountLast4 || '').replace(/[^0-9]/g, '');
+      const type    = ab.accountType || '';
+      const bankLow = (ab.bank || '').toLowerCase();
+      const updDate = ab.statementDate || '';
+
+      if (type === 'bank_account') {
+        // Match by last4, fallback by bank name in account name
+        const match = bankAccounts.find(b =>
+          (last4 && b.last4 === last4) ||
+          (bankLow && b.name.toLowerCase().includes(bankLow))
+        );
+        if (match) {
+          match.balance          = ab.balance;
+          match.balanceUpdatedAt = updDate;
+          balUpdated++;
+        }
+      } else if (type === 'credit_card') {
+        const match = creditCards.find(c =>
+          (last4 && c.last4 === last4) ||
+          (bankLow && c.name.toLowerCase().includes(bankLow))
+        );
+        if (match) {
+          match.outstanding      = ab.balance;
+          if (ab.creditLimit > 0) match.limit = ab.creditLimit;
+          if (ab.dueDate)         match.dueDate = ab.dueDate;
+          match.balanceUpdatedAt = updDate;
+          balUpdated++;
+        }
+      }
+    });
+    if (balUpdated > 0) {
+      renderBankAccounts();
+      renderCreditCards();
+      balMsg = ` · ${balUpdated} balance${balUpdated !== 1 ? 's' : ''} updated`;
+    }
+  }
+
   // ── Apply mortgage balance updates ──
   let mortgageMsg = '';
   if (syncMortgageUpdates && syncMortgageUpdates.length > 0) {
@@ -9268,7 +9330,7 @@ function confirmSyncImport() {
   closeSyncModal();
 
   const acctMsg = syncNewAccounts.length > 0 ? ` · ${syncNewAccounts.length} new account${syncNewAccounts.length !== 1 ? 's' : ''} added` : '';
-  showToast(`✓ Synced ${toImport.length} transactions${acctMsg}${mortgageMsg}`);
+  showToast(`✓ Synced ${toImport.length} transactions${acctMsg}${mortgageMsg}${balMsg}`);
   fosSave();
 
   // Navigate to transactions page
