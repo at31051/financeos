@@ -4009,7 +4009,8 @@ async function fosCloudSave(json) {
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // text/plain avoids CORS preflight — Apps Script reads e.postData.contents regardless
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'saveData', secret, payload: json }),
     });
     const data = await res.json();
