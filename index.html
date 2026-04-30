@@ -5335,6 +5335,23 @@ function switchMonth(el, month) {
 function renderSpendingPage() {
   const d = spendingData[activeMonth];
 
+  // ── Empty state: no spending data yet ──
+  if (!d) {
+    const emptyMsg = `<div style="text-align:center; padding:60px 20px; color:var(--text-tertiary); font-family:var(--font-mono); font-size:12px; line-height:2;">
+      <div style="font-size:32px; margin-bottom:16px;">📊</div>
+      <div style="color:var(--text-secondary); font-size:13px; margin-bottom:8px;">No spending data yet</div>
+      <div>Import a bank statement or add transactions manually<br>to see your spending analysis here.</div>
+    </div>`;
+    try { document.getElementById('s3-total').textContent = 'HK$0'; } catch(e){}
+    try { document.getElementById('s3-daily').textContent = 'HK$0'; } catch(e){}
+    try { document.getElementById('s3-bar-chart').innerHTML = emptyMsg; } catch(e){}
+    try { document.getElementById('s3-bar-labels').innerHTML = ''; } catch(e){}
+    try { document.getElementById('s3-donut').innerHTML = ''; } catch(e){}
+    try { document.getElementById('s3-cat-legend').innerHTML = ''; } catch(e){}
+    try { document.getElementById('s3-tx-list').innerHTML = emptyMsg; } catch(e){}
+    return;
+  }
+
   // Update top metrics
   document.getElementById('s3-total').textContent = fmt(d.total);
   document.getElementById('s3-daily').textContent = 'HK$' + d.daily.toLocaleString();
@@ -5352,12 +5369,17 @@ function renderBarChart() {
   const chart  = document.getElementById('s3-bar-chart');
   const labels = document.getElementById('s3-bar-labels');
   const tooltip = document.getElementById('s3-tooltip');
-  const maxVal = Math.max(...monthOrder.map(m => spendingData[m].total));
+
+  // Filter to months that have data
+  const months = monthOrder.filter(m => spendingData[m]);
+  if (months.length === 0) { chart.innerHTML = ''; labels.innerHTML = ''; return; }
+
+  const maxVal = Math.max(...months.map(m => spendingData[m].total)) || 1;
 
   chart.innerHTML  = '';
   labels.innerHTML = '';
 
-  monthOrder.forEach(m => {
+  months.forEach(m => {
     const d   = spendingData[m];
     const pct = (d.total / maxVal * 100).toFixed(1);
     const isActive = m === activeMonth;
@@ -5381,6 +5403,7 @@ function renderBarChart() {
 function renderDonut() {
   const svg    = document.getElementById('s3-donut');
   const legend = document.getElementById('s3-cat-legend');
+  if (!spendingData[activeMonth]) { svg.innerHTML = ''; legend.innerHTML = ''; return; }
   const cats   = spendingData[activeMonth].cats;
   const total  = Object.values(cats).reduce((a,b) => a+b, 0);
 
@@ -9205,23 +9228,19 @@ document.addEventListener('DOMContentLoaded', function() {
     wzUpdateStepUI();
   }
 
-  updateSavings();
-  refreshJarAddStates();
-  renderSpendingPage();
-  renderBills();
-  renderSubscriptions();
-  renderBankAccounts();
-  renderCreditCards();    // calls refreshCardDropdowns internally
-  renderDigitalAccounts(); // calls refreshCardDropdowns internally
-  renderLoans();
-  renderInvestments();
-  renderTxPage();
-
-  // Render settings storage info if on accounts page
-  renderStorageInfo();
-
-  // ── Stage 10: live dashboard refresh ──
-  refreshLiveDashboard();
+  try { updateSavings(); } catch(e) { console.warn('updateSavings:', e); }
+  try { refreshJarAddStates(); } catch(e) { console.warn('refreshJarAddStates:', e); }
+  try { renderSpendingPage(); } catch(e) { console.warn('renderSpendingPage:', e); }
+  try { renderBills(); } catch(e) { console.warn('renderBills:', e); }
+  try { renderSubscriptions(); } catch(e) { console.warn('renderSubscriptions:', e); }
+  try { renderBankAccounts(); } catch(e) { console.warn('renderBankAccounts:', e); }
+  try { renderCreditCards(); } catch(e) { console.warn('renderCreditCards:', e); }
+  try { renderDigitalAccounts(); } catch(e) { console.warn('renderDigitalAccounts:', e); }
+  try { renderLoans(); } catch(e) { console.warn('renderLoans:', e); }
+  try { renderInvestments(); } catch(e) { console.warn('renderInvestments:', e); }
+  try { renderTxPage(); } catch(e) { console.warn('renderTxPage:', e); }
+  try { renderStorageInfo(); } catch(e) { console.warn('renderStorageInfo:', e); }
+  try { refreshLiveDashboard(); } catch(e) { console.warn('refreshLiveDashboard:', e); }
 
   // ── Stage 11: auto-process due subscriptions ──
   setTimeout(() => { try { autoProcessDueSubs(); } catch(e){ console.warn('autoProcessDueSubs error', e); } }, 600);
