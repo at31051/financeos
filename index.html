@@ -3318,12 +3318,26 @@
 
         <!-- Danger zone -->
         <div style="padding:14px 0 0;">
-          <div style="font-family:var(--font-mono); font-size:10px; color:var(--red); letter-spacing:0.08em; margin-bottom:8px;">DANGER ZONE</div>
-          <button onclick="openClearDataModal()" style="background:rgba(247,95,95,0.08); border:1px solid rgba(247,95,95,0.3); color:var(--red); padding:7px 16px; border-radius:7px; font-family:var(--font-mono); font-size:11px; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.background='rgba(247,95,95,0.16)'" onmouseout="this.style.background='rgba(247,95,95,0.08)'">
-            &#x2715; Clear All Data
-          </button>
-          <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); margin-top:6px; line-height:1.6;">
-            Permanently deletes all your FinanceOS data from this browser. Cannot be undone.
+          <div style="font-family:var(--font-mono); font-size:10px; color:var(--red); letter-spacing:0.08em; margin-bottom:10px;">DANGER ZONE</div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <!-- Clear spending only -->
+            <div>
+              <button onclick="openClearSpendingModal()" style="background:rgba(247,184,79,0.08); border:1px solid rgba(247,184,79,0.3); color:var(--amber); padding:7px 16px; border-radius:7px; font-family:var(--font-mono); font-size:11px; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.background='rgba(247,184,79,0.16)'" onmouseout="this.style.background='rgba(247,184,79,0.08)'">
+                &#x1F5D1; Clear Spending &amp; Transactions
+              </button>
+              <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); margin-top:4px; line-height:1.6;">
+                Deletes all spending history and transaction records. Bills, loans, accounts and investments are kept.
+              </div>
+            </div>
+            <!-- Clear all -->
+            <div>
+              <button onclick="openClearDataModal()" style="background:rgba(247,95,95,0.08); border:1px solid rgba(247,95,95,0.3); color:var(--red); padding:7px 16px; border-radius:7px; font-family:var(--font-mono); font-size:11px; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.background='rgba(247,95,95,0.16)'" onmouseout="this.style.background='rgba(247,95,95,0.08)'">
+                &#x2715; Clear All Data
+              </button>
+              <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); margin-top:4px; line-height:1.6;">
+                Permanently deletes all your FinanceOS data from this browser. Cannot be undone.
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -3415,6 +3429,25 @@
 
     <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); text-align:center;">
       The other version will be discarded. You can always re-sync manually.
+    </div>
+  </div>
+</div>
+
+<!-- CLEAR SPENDING & TRANSACTIONS CONFIRM MODAL -->
+<div id="clear-spending-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:3000; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+  <div style="background:var(--bg-card); border:1px solid rgba(247,184,79,0.35); border-radius:16px; padding:32px; max-width:400px; width:90%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="font-size:32px; margin-bottom:12px;">🗑️</div>
+    <div style="font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--amber); letter-spacing:0.08em; margin-bottom:8px;">CLEAR SPENDING &amp; TRANSACTIONS</div>
+    <div style="font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:24px;">
+      This will delete all spending history and transaction records.<br><br>
+      <strong style="color:var(--text-primary);">Bills, loans, accounts and investments will be kept.</strong><br><br>
+      <strong style="color:var(--amber);">This action cannot be undone.</strong>
+    </div>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button onclick="closeClearSpendingModal()" class="topbar-btn" style="flex:1; max-width:140px; font-size:12px; padding:10px;">Cancel</button>
+      <button onclick="confirmClearSpending()" style="flex:1; max-width:180px; background:var(--amber); border:none; color:#000; padding:10px; border-radius:8px; font-family:var(--font-mono); font-size:12px; font-weight:700; cursor:pointer; letter-spacing:0.05em;">
+        Yes, Clear Spending
+      </button>
     </div>
   </div>
 </div>
@@ -4222,6 +4255,31 @@ function fosClear() {
 }
 
 // ── Settings UI helpers ──
+// ── Clear Spending & Transactions ──
+function openClearSpendingModal() {
+  document.getElementById('clear-spending-modal').style.display = 'flex';
+}
+function closeClearSpendingModal() {
+  document.getElementById('clear-spending-modal').style.display = 'none';
+}
+function confirmClearSpending() {
+  // Clear all spending data
+  Object.keys(spendingData).forEach(k => delete spendingData[k]);
+  // Clear all transactions
+  Object.keys(transactions).forEach(k => delete transactions[k]);
+  // Clear manual transactions array
+  manualTransactions.length = 0;
+  // Reset tx counter
+  txMasterIdCounter = 0;
+  // Persist and re-render
+  fosSave();
+  renderSpendingPage();
+  renderTxPage();
+  refreshLiveDashboard();
+  closeClearSpendingModal();
+  showToast('🗑️ Spending & transactions cleared');
+}
+
 function openClearDataModal() {
   document.getElementById('clear-data-modal').style.display = 'flex';
 }
@@ -5224,14 +5282,7 @@ function showToast(msg) {
 // ══════════════════════════════════════════════
 // STAGE 3 — SPENDING DATA
 // ══════════════════════════════════════════════
-const spendingData = {
-  Nov: { total: 27800, daily: 927,  txCount: 41, vsLast: -3.2, cats: { Housing:9400, 'Food & Dining':5800, Transport:3200, Entertainment:2600, Utilities:2100, Pet:800, Other:3900 } },
-  Dec: { total: 34200, daily: 1103, txCount: 55, vsLast: +23.0, cats: { Housing:9800, 'Food & Dining':7200, Transport:4100, Entertainment:4500, Utilities:2200, Pet:1100, Other:5300 } },
-  Jan: { total: 24600, daily: 794,  txCount: 38, vsLast: -28.1, cats: { Housing:9400, 'Food & Dining':5100, Transport:2800, Entertainment:1400, Utilities:2000, Pet:600, Other:3300 } },
-  Feb: { total: 28900, daily: 1032, txCount: 43, vsLast: +17.5, cats: { Housing:9400, 'Food & Dining':6100, Transport:3300, Entertainment:2200, Utilities:2100, Pet:700, Other:5100 } },
-  Mar: { total: 28800, daily: 929,  txCount: 43, vsLast: -0.3,  cats: { Housing:9800, 'Food & Dining':5600, Transport:3100, Entertainment:2000, Utilities:2200, Pet:900, Other:5200 } },
-  Apr: { total: 31250, daily: 1042, txCount: 48, vsLast: +8.4,  cats: { Housing:10625,'Food & Dining':6250, Transport:4063, Entertainment:2813, Utilities:2500, Pet:938, Other:4061 } },
-};
+const spendingData = {}; // empty by default — populated by real imports/transactions
 
 const catColors = {
   Housing:         '#4f8ef7',
@@ -5265,48 +5316,7 @@ const monthOrder = ['Nov','Dec','Jan','Feb','Mar','Apr'];
 let activeMonth = 'Apr';
 
 // Sample transactions per month (Apr shown, others abbreviated)
-const transactions = {
-  Apr: [
-    { date:'Apr 19', desc:'Market Fresh', cat:'Food & Dining', amt:320 },
-    { date:'Apr 18', desc:'MTR Monthly Pass', cat:'Transport', amt:600 },
-    { date:'Apr 17', desc:'PetSmart Supplies', cat:'Pet', amt:480 },
-    { date:'Apr 16', desc:'Netflix + Spotify', cat:'Entertainment', amt:218 },
-    { date:'Apr 15', desc:'CLP Electricity', cat:'Utilities', amt:1240 },
-    { date:'Apr 14', desc:'Restaurant — Causeway Bay', cat:'Food & Dining', amt:980 },
-    { date:'Apr 13', desc:'Uber / DiDi', cat:'Transport', amt:340 },
-    { date:'Apr 12', desc:'Wellcome Supermarket', cat:'Food & Dining', amt:756 },
-    { date:'Apr 10', desc:'Cinema — Festival Walk', cat:'Entertainment', amt:220 },
-    { date:'Apr 08', desc:'Property Management Fee', cat:'Housing', amt:3200 },
-    { date:'Apr 05', desc:'ParknShop + Watsons', cat:'Food & Dining', amt:640 },
-    { date:'Apr 01', desc:'Rent — Taikoo', cat:'Housing', amt:7425 },
-  ],
-  Mar: [
-    { date:'Mar 31', desc:'Rent — Taikoo', cat:'Housing', amt:7425 },
-    { date:'Mar 28', desc:'HK Gas', cat:'Utilities', amt:680 },
-    { date:'Mar 25', desc:'Gym Membership', cat:'Entertainment', amt:800 },
-    { date:'Mar 22', desc:'Uber / DiDi', cat:'Transport', amt:290 },
-    { date:'Mar 20', desc:'Market Fresh', cat:'Food & Dining', amt:410 },
-    { date:'Mar 18', desc:'Vet Visit', cat:'Pet', amt:900 },
-    { date:'Mar 15', desc:'Restaurant — Wan Chai', cat:'Food & Dining', amt:850 },
-    { date:'Mar 10', desc:'Property Management Fee', cat:'Housing', amt:2375 },
-    { date:'Mar 05', desc:'Wellcome Supermarket', cat:'Food & Dining', amt:580 },
-  ],
-};
-// Fill missing months with generic data
-['Nov','Dec','Jan','Feb'].forEach(m => {
-  if (!transactions[m]) {
-    const d = spendingData[m];
-    transactions[m] = [
-      { date:`${m} 30`, desc:'Rent', cat:'Housing', amt: Math.round(d.cats.Housing * 0.7) },
-      { date:`${m} 28`, desc:'Utilities', cat:'Utilities', amt: d.cats.Utilities },
-      { date:`${m} 22`, desc:'Dining out', cat:'Food & Dining', amt: Math.round(d.cats['Food & Dining'] * 0.4) },
-      { date:`${m} 18`, desc:'Transport', cat:'Transport', amt: d.cats.Transport },
-      { date:`${m} 12`, desc:'Entertainment', cat:'Entertainment', amt: d.cats.Entertainment },
-      { date:`${m} 08`, desc:'Pet supplies', cat:'Pet', amt: d.cats.Pet },
-      { date:`${m} 03`, desc:'Supermarket', cat:'Food & Dining', amt: Math.round(d.cats['Food & Dining'] * 0.6) },
-    ];
-  }
-});
+const transactions = {}; // empty by default — populated by real imports/transactions
 
 // Track deducted transactions
 const deductedTx = new Set();
