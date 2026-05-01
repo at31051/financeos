@@ -43,6 +43,14 @@
   #import-modal-overlay { display: none; }
   #import-modal-overlay.open { display: flex !important; }
 
+  .sort-hdr {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+  }
+  .sort-hdr:hover { color: var(--blue) !important; }
+  .sort-hdr.sort-active { color: var(--blue) !important; }
+
   .bank-pill {
     padding: 5px 14px;
     border-radius: 20px;
@@ -834,7 +842,7 @@
 
   .tx-row {
     display: grid;
-    grid-template-columns: 28px 1fr 1fr 90px 110px 100px 130px;
+    grid-template-columns: 28px 90px 1fr 90px 110px 100px 120px 40px;
     gap: 0;
     padding: 9px 10px;
     border-radius: 8px;
@@ -2133,14 +2141,15 @@
           </div>
         </div>
 
-        <div style="display:grid; grid-template-columns: 28px 1fr 1fr 90px 110px 100px 130px; gap:0; margin-bottom:8px; padding:0 10px; align-items:center;">
+        <div style="display:grid; grid-template-columns: 28px 90px 1fr 90px 110px 100px 120px 40px; gap:0; margin-bottom:8px; padding:0 10px; align-items:center;">
           <input type="checkbox" id="s3-select-all" onchange="toggleSelectAll(this)" style="cursor:pointer; accent-color:var(--blue);">
-          <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em;">DATE</div>
-          <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em;">DESCRIPTION</div>
-          <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em;">CATEGORY</div>
-          <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em;">ACCOUNT</div>
-          <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em; text-align:right;">AMOUNT</div>
+          <div class="sort-hdr" style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em;" onclick="setSpendSort('date')" id="sp-hdr-date">DATE ↓</div>
+          <div class="sort-hdr" style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em;" onclick="setSpendSort('desc')" id="sp-hdr-desc">DESCRIPTION</div>
+          <div class="sort-hdr" style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em;" onclick="setSpendSort('cat')" id="sp-hdr-cat">CATEGORY</div>
+          <div class="sort-hdr" style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em;" onclick="setSpendSort('account')" id="sp-hdr-account">ACCOUNT</div>
+          <div class="sort-hdr" style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em; text-align:right;" onclick="setSpendSort('amt')" id="sp-hdr-amt">AMOUNT</div>
           <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em; text-align:right;">JAR</div>
+          <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em; text-align:center;">DEL</div>
         </div>
 
         <div id="s3-tx-list" style="display:flex; flex-direction:column; gap:4px;"></div>
@@ -2988,12 +2997,12 @@
         </div>
 
         <!-- Column headers -->
-        <div style="display:grid; grid-template-columns:100px 1fr 120px 110px 130px 70px 70px; gap:0; margin-bottom:8px; padding:0 12px; align-items:center;">
-          <div class="acc-col-hdr">DATE</div>
-          <div class="acc-col-hdr">DESCRIPTION</div>
-          <div class="acc-col-hdr">CATEGORY</div>
-          <div class="acc-col-hdr" style="text-align:right;">AMOUNT</div>
-          <div class="acc-col-hdr">ACCOUNT</div>
+        <div style="display:grid; grid-template-columns:100px 1fr 120px 110px 130px 70px 80px; gap:0; margin-bottom:8px; padding:0 12px; align-items:center;" id="tx-col-hdrs">
+          <div class="acc-col-hdr sort-hdr" onclick="setTxSort('date')" id="tx-hdr-date">DATE ↓</div>
+          <div class="acc-col-hdr sort-hdr" onclick="setTxSort('desc')" id="tx-hdr-desc">DESCRIPTION</div>
+          <div class="acc-col-hdr sort-hdr" onclick="setTxSort('cat')" id="tx-hdr-cat">CATEGORY</div>
+          <div class="acc-col-hdr sort-hdr" onclick="setTxSort('amt')" id="tx-hdr-amt" style="text-align:right;">AMOUNT</div>
+          <div class="acc-col-hdr sort-hdr" onclick="setTxSort('account')" id="tx-hdr-account">ACCOUNT</div>
           <div class="acc-col-hdr" style="text-align:center;">TYPE</div>
           <div class="acc-col-hdr" style="text-align:right;">ACTION</div>
         </div>
@@ -5347,6 +5356,17 @@ function renderSpendingMonthTabs() {
 // Render transaction page month tabs — all months with transactions
 let activeTxMonth = 'all';
 
+// ── Sort state ──
+let txSortCol    = 'date';   // 'date' | 'desc' | 'cat' | 'amt' | 'account'
+let txSortDir    = -1;       // -1 = desc, 1 = asc
+let spendSortCol = 'date';
+let spendSortDir = -1;
+
+// ── Categories excluded from Spending page (transfers, admin, income) ──
+const NON_SPENDING_CATS = new Set([
+  'Transfer', 'Income', 'Loan Repayment', 'Investment', 'Rental Income', 'Transfer/Withdrawal'
+]);
+
 function renderTxMonthTabs() {
   const container = document.getElementById('tx-month-tabs');
   if (!container) return;
@@ -5564,17 +5584,77 @@ function normDateDisplay(s) {
   return String(s); // give up, return as-is
 }
 
+function setSpendSort(col) {
+  if (spendSortCol === col) { spendSortDir = -spendSortDir; }
+  else { spendSortCol = col; spendSortDir = -1; }
+  const cols = ['date','desc','cat','account','amt'];
+  cols.forEach(c => {
+    const el = document.getElementById('sp-hdr-' + c);
+    if (!el) return;
+    const labels = { date:'DATE', desc:'DESCRIPTION', cat:'CATEGORY', account:'ACCOUNT', amt:'AMOUNT' };
+    el.textContent = labels[c] + (spendSortCol === c ? (spendSortDir === -1 ? ' ↓' : ' ↑') : '');
+    el.classList.toggle('sort-active', spendSortCol === c);
+  });
+  renderTransactions();
+}
+
+function deleteSpendingTx(month, origIdx) {
+  const txList = transactions[month];
+  if (!txList || origIdx >= txList.length) { showToast('⚠ Could not find entry'); return; }
+  const tx = txList[origIdx];
+  txList.splice(origIdx, 1);
+  if (tx && spendingData[month]) {
+    spendingData[month].total   = Math.max(0, (spendingData[month].total   || 0) - tx.amt);
+    spendingData[month].txCount = Math.max(0, (spendingData[month].txCount || 0) - 1);
+    const dateObj = new Date();
+    const days = new Date(dateObj.getFullYear(), dateObj.getMonth()+1, 0).getDate();
+    spendingData[month].daily = spendingData[month].txCount > 0 ? Math.round(spendingData[month].total / days) : 0;
+    const spendCat = tx.cat || 'Other';
+    if (spendingData[month].cats && spendingData[month].cats[spendCat]) {
+      spendingData[month].cats[spendCat] = Math.max(0, (spendingData[month].cats[spendCat] || 0) - tx.amt);
+      if (spendingData[month].cats[spendCat] === 0) delete spendingData[month].cats[spendCat];
+    }
+  }
+  fosSave();
+  renderSpendingPage();
+  try { renderTxPage(); } catch(e) {}
+  showToast('✕ Spending entry removed');
+}
+
 function renderTransactions() {
   const filter = document.getElementById('s3-cat-filter').value;
   const list   = document.getElementById('s3-tx-list');
-  const txs    = (transactions[activeMonth] || []).filter(t => filter === 'all' || t.cat === filter);
+
+  // Get ALL txs for the month, track original indices, then filter
+  const allMonthTxs = (transactions[activeMonth] || []);
+  let txsWithIdx = allMonthTxs
+    .map((tx, i) => ({ tx, origIdx: i }))
+    .filter(({ tx }) => !NON_SPENDING_CATS.has(tx.cat))   // ← exclude non-spending
+    .filter(({ tx }) => filter === 'all' || tx.cat === filter);
+
+  // Apply sort
+  txsWithIdx = [...txsWithIdx].sort((a, b) => {
+    let va, vb;
+    switch (spendSortCol) {
+      case 'amt':     va = a.tx.amt;                           vb = b.tx.amt; break;
+      case 'desc':    va = (a.tx.desc||'').toLowerCase();      vb = (b.tx.desc||'').toLowerCase(); break;
+      case 'cat':     va = (a.tx.cat||'').toLowerCase();       vb = (b.tx.cat||'').toLowerCase(); break;
+      case 'account': va = (a.tx.account||'').toLowerCase();   vb = (b.tx.account||'').toLowerCase(); break;
+      default: {
+        const da = new Date(a.tx.date + ' ' + (activeMonth==='Nov'||activeMonth==='Dec'?'2025':'2026'));
+        const db = new Date(b.tx.date + ' ' + (activeMonth==='Nov'||activeMonth==='Dec'?'2025':'2026'));
+        va = isNaN(da) ? 0 : da.getTime(); vb = isNaN(db) ? 0 : db.getTime();
+      }
+    }
+    return spendSortDir * (va < vb ? -1 : va > vb ? 1 : 0);
+  });
 
   list.innerHTML = '';
   let runningTotal = 0;
 
-  txs.forEach((tx, i) => {
+  txsWithIdx.forEach(({ tx, origIdx }) => {
     runningTotal += tx.amt;
-    const txId   = `${activeMonth}-${i}`;
+    const txId   = `${activeMonth}-${origIdx}`;
     const isDone = deductedTx.has(txId);
     const color  = catColors[tx.cat] || '#7a7f94';
 
@@ -5586,7 +5666,6 @@ function renderTransactions() {
     const row = document.createElement('div');
     row.className = 'tx-row';
     row.dataset.txid = txId;
-    // Short account label: keep emoji + name, truncate long names
     const acctDisplay = tx.account
       ? (tx.account.length > 18 ? tx.account.substring(0, 17) + '…' : tx.account)
       : '<span style="color:var(--text-tertiary); opacity:0.5;">—</span>';
@@ -5612,11 +5691,14 @@ function renderTransactions() {
              <button class="jar-suggest-btn" onclick="deductFromJar('${txId}', ${tx.amt}, this)">→</button>`
         }
       </div>
+      <div style="text-align:center;">
+        <button class="delete-btn" onclick="deleteSpendingTx('${activeMonth}', ${origIdx})" title="Remove from spending" style="opacity:0.6;">✕</button>
+      </div>
     `;
     list.appendChild(row);
   });
 
-  document.getElementById('s3-tx-count').textContent = txs.length;
+  document.getElementById('s3-tx-count').textContent = txsWithIdx.length;
   document.getElementById('s3-tx-total').textContent = 'Total: HK$' + runningTotal.toLocaleString();
   updateSelectedCount();
   const sa = document.getElementById('s3-select-all');
@@ -7660,15 +7742,36 @@ let manualTransactions = [];
 let txMasterIdCounter  = 5000;
 
 function buildTxMasterList() {
-  const allTx = [];
-  // Pull from spending page transactions data
+  const allTx  = [];
+  const seenKeys = new Set();
+
+  // Helper: make a dedup key from any tx object
+  function masterKey(date, desc, amt, type, account) {
+    let d = new Date(date);
+    const dateNorm = isNaN(d) ? String(date) : d.toISOString().slice(0, 10);
+    return [dateNorm, String(desc||'').toLowerCase().trim(), String(amt), String(type||''), String(account||'').toLowerCase().trim()].join('||');
+  }
+
+  // Add manual/import entries FIRST (they carry full metadata)
+  manualTransactions.forEach(tx => {
+    const k = masterKey(tx.rawDate || tx.date, tx.desc, tx.amt, tx.type, tx.account);
+    if (seenKeys.has(k)) return;
+    seenKeys.add(k);
+    allTx.push(tx);
+  });
+
+  // Pull from spending page transactions[] — skip if already in manualTransactions
   Object.entries(transactions).forEach(([month, txList]) => {
     const yearSuffix = (month === 'Nov' || month === 'Dec') ? ' 2025' : ' 2026';
     txList.forEach((tx, i) => {
+      const fullDate = tx.date + yearSuffix;
+      const k = masterKey(fullDate, tx.desc, tx.amt, 'expense', tx.account || '');
+      if (seenKeys.has(k)) return;
+      seenKeys.add(k);
       allTx.push({
         id:    `spending-${month}-${i}`,
-        date:  tx.date + yearSuffix,
-        rawDate: new Date(tx.date + yearSuffix).getTime() || 0,
+        date:  fullDate,
+        rawDate: new Date(fullDate).getTime() || 0,
         desc:  tx.desc,
         cat:   tx.cat,
         amt:   tx.amt,
@@ -7679,11 +7782,10 @@ function buildTxMasterList() {
       });
     });
   });
-  // Add manual entries
-  manualTransactions.forEach(tx => allTx.push(tx));
-  // Sort newest first (crude lexical on date string)
+
+  // Sort newest first
   allTx.sort((a, b) => {
-    const da = new Date(a.date), db = new Date(b.date);
+    const da = new Date(a.rawDate || a.date), db = new Date(b.rawDate || b.date);
     if (!isNaN(da) && !isNaN(db)) return db - da;
     return 0;
   });
@@ -7735,9 +7837,9 @@ function addTransaction() {
     source:  'manual',
   });
 
-  // Sync to spendingData (expenses only) — same logic as confirmImport
+  // Sync to spendingData (expenses only, real spending cats only)
   const _validSpendCats = new Set(['Housing','Food & Dining','Transport','Entertainment','Utilities','Pet','Other']);
-  if (type === 'expense' && spendingData[monthKey]) {
+  if (type === 'expense' && !NON_SPENDING_CATS.has(cat) && spendingData[monthKey]) {
     const spendCat = _validSpendCats.has(cat) ? cat : 'Other';
     const days = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
     spendingData[monthKey].total    = (spendingData[monthKey].total || 0) + amt;
@@ -7792,6 +7894,72 @@ function deleteManualTx(id) {
   fosSave();
 }
 
+// ── Delete ANY transaction (works for all sources including 'spending') ──
+function deleteAnyTx(id) {
+  // Try manualTransactions first
+  const mTx = manualTransactions.find(t => t.id === id);
+  if (mTx) { deleteManualTx(id); return; }
+
+  // Handle 'spending-MONTH-INDEX' source transactions
+  const m = id.match(/^spending-([A-Za-z]+)-(\d+)$/);
+  if (m) {
+    const month = m[1];
+    const idx   = parseInt(m[2]);
+    const txList = transactions[month];
+    if (!txList || idx >= txList.length) { showToast('⚠ Could not find transaction'); return; }
+    const tx = txList[idx];
+    // Remove from transactions[]
+    txList.splice(idx, 1);
+    // Remove from spendingData
+    if (tx && spendingData[month]) {
+      spendingData[month].total   = Math.max(0, (spendingData[month].total   || 0) - tx.amt);
+      spendingData[month].txCount = Math.max(0, (spendingData[month].txCount || 0) - 1);
+      const days = (function() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); })();
+      spendingData[month].daily = spendingData[month].txCount > 0 ? Math.round(spendingData[month].total / days) : 0;
+      const spendCat = tx.cat || 'Other';
+      if (spendingData[month].cats && spendingData[month].cats[spendCat]) {
+        spendingData[month].cats[spendCat] = Math.max(0, (spendingData[month].cats[spendCat] || 0) - tx.amt);
+      }
+    }
+    fosSave();
+    try { renderSpendingPage(); } catch(e) {}
+    renderTxPage();
+    showToast('✕ Transaction removed');
+    return;
+  }
+  showToast('⚠ Could not find transaction');
+}
+
+// ── Add a tx-page transaction to Spending (if it's a real expense) ──
+function addTxToSpending(id) {
+  const tx = buildTxMasterList().find(t => t.id === id);
+  if (!tx || tx.type !== 'expense') { showToast('⚠ Only expense transactions can be added to Spending'); return; }
+  if (NON_SPENDING_CATS.has(tx.cat)) { showToast('⚠ ' + tx.cat + ' is excluded from Spending'); return; }
+
+  const dateObj  = new Date(tx.rawDate || tx.date);
+  const monthKey = dateObj.toLocaleString('en-HK', { month: 'short' });
+  const days     = new Date(dateObj.getFullYear(), dateObj.getMonth()+1, 0).getDate();
+  const cat      = tx.cat || 'Other';
+
+  // Check if already in transactions[month] by desc+amt
+  if (transactions[monthKey] && transactions[monthKey].some(t => t.desc === tx.desc && t.amt === tx.amt)) {
+    showToast('⚠ Already in Spending for ' + monthKey); return;
+  }
+
+  if (!spendingData[monthKey]) spendingData[monthKey] = { total: 0, daily: 0, txCount: 0, vsLast: 0, cats: {} };
+  if (!transactions[monthKey]) transactions[monthKey] = [];
+
+  spendingData[monthKey].total   += tx.amt;
+  spendingData[monthKey].txCount += 1;
+  spendingData[monthKey].daily    = Math.round(spendingData[monthKey].total / days);
+  spendingData[monthKey].cats[cat] = (spendingData[monthKey].cats[cat] || 0) + tx.amt;
+  transactions[monthKey].push({ date: tx.date, desc: tx.desc, cat, amt: tx.amt, account: tx.account || '' });
+
+  fosSave();
+  try { renderSpendingPage(); } catch(e) {}
+  showToast('✓ Added to Spending — ' + monthKey);
+}
+
 function clearTxFilters() {
   const ids = ['tx-search','tx-filter-cat','tx-filter-type'];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = el.tagName === 'SELECT' ? 'all' : ''; });
@@ -7813,11 +7981,39 @@ function getFilteredTxList() {
   });
 }
 
+function setTxSort(col) {
+  if (txSortCol === col) { txSortDir = -txSortDir; }
+  else { txSortCol = col; txSortDir = col === 'amt' ? -1 : -1; }
+  // Update header labels
+  const cols = ['date','desc','cat','amt','account'];
+  cols.forEach(c => {
+    const el = document.getElementById('tx-hdr-' + c);
+    if (!el) return;
+    const labels = { date:'DATE', desc:'DESCRIPTION', cat:'CATEGORY', amt:'AMOUNT', account:'ACCOUNT' };
+    el.textContent = labels[c] + (txSortCol === c ? (txSortDir === -1 ? ' ↓' : ' ↑') : '');
+    el.classList.toggle('sort-active', txSortCol === c);
+  });
+  renderTxPage();
+}
+
 function renderTxPage() {
   renderTxMonthTabs();
-  const filtered = getFilteredTxList();
-  const list     = document.getElementById('tx-full-list');
+  let filtered = getFilteredTxList();
+  const list   = document.getElementById('tx-full-list');
   if (!list) return;
+
+  // ── Apply sort ──
+  filtered = [...filtered].sort((a, b) => {
+    let va, vb;
+    switch (txSortCol) {
+      case 'amt':     va = a.amt;                             vb = b.amt; break;
+      case 'desc':    va = (a.desc||'').toLowerCase();        vb = (b.desc||'').toLowerCase(); break;
+      case 'cat':     va = (a.cat||'').toLowerCase();         vb = (b.cat||'').toLowerCase(); break;
+      case 'account': va = (a.account||'').toLowerCase();     vb = (b.account||'').toLowerCase(); break;
+      default:        va = a.rawDate || new Date(a.date).getTime(); vb = b.rawDate || new Date(b.date).getTime();
+    }
+    return txSortDir * (va < vb ? -1 : va > vb ? 1 : 0);
+  });
 
   if (filtered.length === 0) {
     list.innerHTML = '<div style="text-align:center; padding:32px 0; font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary);">No transactions match your filters</div>';
@@ -7827,12 +8023,12 @@ function renderTxPage() {
       const amtColor  = isIncome ? 'var(--green)' : 'var(--red)';
       const amtPrefix = isIncome ? '+' : '−';
       const color     = catColors[tx.cat] || '#7a7f94';
-      const canDelete = tx.source === 'manual' || tx.source === 'import';
+      const isNonSpend = NON_SPENDING_CATS.has(tx.cat) || isIncome;
 
       return `
-        <div class="acc-row" style="display:grid; grid-template-columns:100px 1fr 130px 120px 140px 70px 70px; gap:0; padding:9px 12px; margin-bottom:4px; align-items:center;">
+        <div class="acc-row" style="display:grid; grid-template-columns:100px 1fr 130px 120px 140px 70px 80px; gap:0; padding:9px 12px; margin-bottom:4px; align-items:center;">
           <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-tertiary);">${normDateDisplay(tx.date)}</div>
-          <div style="font-size:12px; font-weight:500; color:var(--text-primary); padding-right:8px;">${tx.desc}</div>
+          <div style="font-size:12px; font-weight:500; color:var(--text-primary); padding-right:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${tx.desc}</div>
           <div>
             <select onchange="updateTxCat('${tx.id}', this.value)"
               style="font-family:var(--font-mono); font-size:10px; padding:2px 6px; border-radius:10px;
@@ -7853,8 +8049,9 @@ function renderTxPage() {
               ${isIncome ? 'In' : 'Out'}
             </span>
           </div>
-          <div style="text-align:right;">
-            ${canDelete ? `<button class="delete-btn" onclick="deleteManualTx('${tx.id}')">✕</button>` : `<span style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary);">auto</span>`}
+          <div style="display:flex; gap:3px; justify-content:flex-end; align-items:center;">
+            ${!isIncome && !isNonSpend ? `<button title="Add to Spending" onclick="addTxToSpending('${tx.id}')" style="background:var(--green-dim); border:1px solid rgba(61,214,140,0.25); color:var(--green); border-radius:4px; width:22px; height:22px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">$</button>` : ''}
+            <button class="delete-btn" onclick="deleteAnyTx('${tx.id}')" title="Delete">✕</button>
           </div>
         </div>`;
     }).join('');
@@ -9220,8 +9417,8 @@ function confirmSyncImport() {
       source:  'import',
     });
 
-    // Sync to spendingData (expenses only) — auto-create month entry if needed
-    if (type === 'expense') {
+    // Sync to spendingData (expenses only, real spending cats only) — auto-create month entry if needed
+    if (type === 'expense' && !NON_SPENDING_CATS.has(cat)) {
       const spendCat = validSpendingCats.has(cat) ? cat : 'Other';
       const days = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
       if (!spendingData[monthKey]) {
