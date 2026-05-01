@@ -700,23 +700,32 @@
 
   .jar-add-btn {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 9px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 5px;
-    padding: 2px 8px;
+    padding: 2px 6px;
     color: var(--text-tertiary);
     cursor: pointer;
     transition: all 0.15s;
     white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .jar-add-btn:hover { border-color: var(--border-accent); color: var(--blue); }
+  .jar-add-btn.last-month:hover { color: var(--amber); border-color: rgba(255,196,0,0.4); }
 
   .jar-add-btn:disabled {
     opacity: 0.35;
     cursor: not-allowed;
     pointer-events: none;
+  }
+
+  .jar-balance-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
   }
 
   .jar-done-tag {
@@ -1721,7 +1730,7 @@
               <input class="jar-balance-input" id="jar-finance-bal-input" type="text" style="display:none; color:var(--blue);"
                 onblur="saveJarEdit('finance')" onkeydown="if(event.key==='Enter')saveJarEdit('finance')">
               <span id="jar-finance-done-tag"></span>
-              <button class="jar-add-btn" id="jar-finance-add-btn" onclick="addAllocationToBalance('finance')">+ Add</button>
+              <button class="jar-add-btn last-month" id="jar-finance-btn-last" onclick="addAllocationToBalance('finance', getJarPeriods().last)" title="Add last month allocation"></button><button class="jar-add-btn" id="jar-finance-btn-curr" onclick="addAllocationToBalance('finance', getJarPeriods().curr)" title="Add current month allocation"></button>
             </div>
           </div>
 
@@ -1743,7 +1752,7 @@
               <input class="jar-balance-input" id="jar-home-bal-input" type="text" style="display:none; color:var(--purple);"
                 onblur="saveJarEdit('home')" onkeydown="if(event.key==='Enter')saveJarEdit('home')">
               <span id="jar-home-done-tag"></span>
-              <button class="jar-add-btn" id="jar-home-add-btn" onclick="addAllocationToBalance('home')">+ Add</button>
+              <button class="jar-add-btn last-month" id="jar-home-btn-last" onclick="addAllocationToBalance('home', getJarPeriods().last)" title="Add last month allocation"></button><button class="jar-add-btn" id="jar-home-btn-curr" onclick="addAllocationToBalance('home', getJarPeriods().curr)" title="Add current month allocation"></button>
             </div>
           </div>
 
@@ -1765,7 +1774,7 @@
               <input class="jar-balance-input" id="jar-saving-bal-input" type="text" style="display:none; color:var(--green);"
                 onblur="saveJarEdit('saving')" onkeydown="if(event.key==='Enter')saveJarEdit('saving')">
               <span id="jar-saving-done-tag"></span>
-              <button class="jar-add-btn" id="jar-saving-add-btn" onclick="addAllocationToBalance('saving')">+ Add</button>
+              <button class="jar-add-btn last-month" id="jar-saving-btn-last" onclick="addAllocationToBalance('saving', getJarPeriods().last)" title="Add last month allocation"></button><button class="jar-add-btn" id="jar-saving-btn-curr" onclick="addAllocationToBalance('saving', getJarPeriods().curr)" title="Add current month allocation"></button>
             </div>
           </div>
 
@@ -1787,7 +1796,7 @@
               <input class="jar-balance-input" id="jar-investment-bal-input" type="text" style="display:none; color:var(--teal);"
                 onblur="saveJarEdit('investment')" onkeydown="if(event.key==='Enter')saveJarEdit('investment')">
               <span id="jar-investment-done-tag"></span>
-              <button class="jar-add-btn" id="jar-investment-add-btn" onclick="addAllocationToBalance('investment')">+ Add</button>
+              <button class="jar-add-btn last-month" id="jar-investment-btn-last" onclick="addAllocationToBalance('investment', getJarPeriods().last)" title="Add last month allocation"></button><button class="jar-add-btn" id="jar-investment-btn-curr" onclick="addAllocationToBalance('investment', getJarPeriods().curr)" title="Add current month allocation"></button>
             </div>
           </div>
 
@@ -1809,7 +1818,7 @@
               <input class="jar-balance-input" id="jar-pet-bal-input" type="text" style="display:none; color:var(--amber);"
                 onblur="saveJarEdit('pet')" onkeydown="if(event.key==='Enter')saveJarEdit('pet')">
               <span id="jar-pet-done-tag"></span>
-              <button class="jar-add-btn" id="jar-pet-add-btn" onclick="addAllocationToBalance('pet')">+ Add</button>
+              <button class="jar-add-btn last-month" id="jar-pet-btn-last" onclick="addAllocationToBalance('pet', getJarPeriods().last)" title="Add last month allocation"></button><button class="jar-add-btn" id="jar-pet-btn-curr" onclick="addAllocationToBalance('pet', getJarPeriods().curr)" title="Add current month allocation"></button>
             </div>
           </div>
 
@@ -1831,7 +1840,7 @@
               <input class="jar-balance-input" id="jar-play-bal-input" type="text" style="display:none; color:#f97316;"
                 onblur="saveJarEdit('play')" onkeydown="if(event.key==='Enter')saveJarEdit('play')">
               <span id="jar-play-done-tag"></span>
-              <button class="jar-add-btn" id="jar-play-add-btn" onclick="addAllocationToBalance('play')">+ Add</button>
+              <button class="jar-add-btn last-month" id="jar-play-btn-last" onclick="addAllocationToBalance('play', getJarPeriods().last)" title="Add last month allocation"></button><button class="jar-add-btn" id="jar-play-btn-curr" onclick="addAllocationToBalance('play', getJarPeriods().curr)" title="Add current month allocation"></button>
             </div>
           </div>
 
@@ -2138,6 +2147,8 @@
               <option value="Other">Other</option>
             </select>
             <button class="allocate-btn" onclick="addAllSelected()" id="s3-add-all-btn">+ Add Selected</button>
+            <button onclick="deleteAllSelected()" style="background:var(--red-dim); border:1px solid rgba(247,95,95,0.25); color:var(--red); border-radius:6px; padding:4px 10px; font-family:var(--font-mono); font-size:10px; cursor:pointer; white-space:nowrap;">✕ Delete Selected</button>
+            <button onclick="deleteAllSelected()" style="padding:5px 12px; border-radius:6px; border:1px solid rgba(247,95,95,0.3); background:var(--red-dim); color:var(--red); font-family:var(--font-mono); font-size:10px; cursor:pointer; transition:all 0.15s;" id="s3-del-all-btn">✕ Delete Selected</button>
           </div>
         </div>
 
@@ -2879,17 +2890,17 @@
       <!-- Summary metrics -->
       <div class="metrics-row" style="margin-bottom:20px;">
         <div class="metric-card red">
-          <div class="metric-label">Total Outflow (Filtered)</div>
+          <div class="metric-label">Monthly Outflow</div>
           <div class="editable-value" style="font-size:20px; color:var(--red); cursor:default;" id="tx-total-out">HK$0</div>
           <div class="metric-change flat" id="tx-count-label">— 0 transactions</div>
         </div>
         <div class="metric-card green">
-          <div class="metric-label">Total Inflow (Filtered)</div>
+          <div class="metric-label">Monthly Inflow</div>
           <div class="editable-value" style="font-size:20px; color:var(--green); cursor:default;" id="tx-total-in">HK$0</div>
           <div class="metric-change flat" id="tx-inflow-count">— 0 income entries</div>
         </div>
         <div class="metric-card blue">
-          <div class="metric-label">Net (Filtered)</div>
+          <div class="metric-label">Monthly Net</div>
           <div class="editable-value" style="font-size:20px; cursor:default;" id="tx-net">HK$0</div>
           <div class="metric-change flat">— inflow minus outflow</div>
         </div>
@@ -5216,6 +5227,20 @@ function getPeriodKey() {
   return mon + yr;
 }
 
+// Returns { curr: 'may26', last: 'apr26', currLabel: '+May26', lastLabel: '+Apr26' }
+function getJarPeriods() {
+  const now  = new Date();
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const fmt  = d => d.toLocaleString('en-HK', { month: 'short' }).toLowerCase() + String(d.getFullYear()).slice(2);
+  const label = d => d.toLocaleString('en-HK', { month: 'short' }) + String(d.getFullYear()).slice(2);
+  return {
+    curr:      fmt(now),
+    last:      fmt(prev),
+    currLabel: '+' + label(now),
+    lastLabel: '+' + label(prev),
+  };
+}
+
 // Check if we're past 25th — if so, next period is next month
 function getActivePeriod() {
   const d = new Date();
@@ -5228,39 +5253,68 @@ function getActivePeriod() {
   return getPeriodKey();
 }
 
-function addAllocationToBalance(key) {
-  const jar    = state.jars[key];
-  const period = getActivePeriod();
+function addAllocationToBalance(key, period) {
+  const jar = state.jars[key];
+  if (!period) period = getActivePeriod();
 
-  // Already done this period
-  if (jar.addedPeriod === period) {
+  // Track added periods per jar as a Set stored in addedPeriods object
+  if (!jar.addedPeriods) jar.addedPeriods = {};
+  if (jar.addedPeriods[period]) {
     showToast('⚠ Already added for ' + period.toUpperCase());
     return;
   }
 
   const alloc = jar.monthlyAlloc || Math.round(state.income * jar.pct);
   jar.balance += alloc;
-  jar.addedPeriod = period;
+  jar.addedPeriods[period] = true;
+  jar.addedPeriod = period; // keep legacy field
 
   document.getElementById('jar-' + key + '-bal-val').textContent = fmt(jar.balance);
-  setJarDone(key, period);
-  showToast('✓ +' + fmt(alloc) + ' added to ' + key.charAt(0).toUpperCase() + key.slice(1));
+  refreshJarAddStates();
+  showToast('✓ +' + fmt(alloc) + ' added to ' + key.charAt(0).toUpperCase() + key.slice(1) + ' (' + period.toUpperCase() + ')');
   fosSave();
 }
 
 function setJarDone(key, period) {
-  const btn     = document.getElementById('jar-' + key + '-add-btn');
-  const tagSlot = document.getElementById('jar-' + key + '-done-tag');
+  // Legacy single-button support — now handled by refreshJarAddStates
+  refreshJarAddStates();
+}
 
-  btn.disabled = true;
-  tagSlot.innerHTML = '<span class="jar-done-tag">✓ ' + period.toUpperCase() + '</span>';
+// Set dynamic labels on the dual jar buttons (runs on init + after any state change)
+function initJarButtonLabels() {
+  const { curr, last, currLabel, lastLabel } = getJarPeriods();
+  const jars = ['finance','home','saving','investment','pet','play'];
+  jars.forEach(key => {
+    const btnLast = document.getElementById('jar-' + key + '-btn-last');
+    const btnCurr = document.getElementById('jar-' + key + '-btn-curr');
+    if (btnLast) btnLast.textContent = lastLabel;
+    if (btnCurr) btnCurr.textContent = currLabel;
+  });
+  refreshJarAddStates();
 }
 
 function refreshJarAddStates() {
-  const period = getActivePeriod();
+  const { curr, last } = getJarPeriods();
   Object.keys(state.jars).forEach(key => {
-    if (state.jars[key].addedPeriod === period) {
-      setJarDone(key, period);
+    const jar = state.jars[key];
+    // Migrate legacy addedPeriod → addedPeriods
+    if (jar.addedPeriod && !jar.addedPeriods) {
+      jar.addedPeriods = { [jar.addedPeriod]: true };
+    }
+    const added = jar.addedPeriods || {};
+
+    const btnCurr = document.getElementById('jar-' + key + '-btn-curr');
+    const btnLast = document.getElementById('jar-' + key + '-btn-last');
+    const tagSlot = document.getElementById('jar-' + key + '-done-tag');
+
+    if (btnCurr) btnCurr.disabled = !!added[curr];
+    if (btnLast) btnLast.disabled = !!added[last];
+
+    if (tagSlot) {
+      const tags = [];
+      if (added[curr]) tags.push('<span class="jar-done-tag">✓ ' + curr.toUpperCase() + '</span>');
+      if (added[last]) tags.push('<span class="jar-done-tag" style="opacity:0.6;">✓ ' + last.toUpperCase() + '</span>');
+      tagSlot.innerHTML = tags.join(' ');
     }
   });
 }
@@ -5371,32 +5425,38 @@ function renderTxMonthTabs() {
   const container = document.getElementById('tx-month-tabs');
   if (!container) return;
 
-  // Collect all months from manualTransactions
+  // Collect full month labels ("Apr 2026") from ALL sources
   const seen = new Set();
-  manualTransactions.forEach(tx => { if (tx.month) seen.add(tx.month); });
+  manualTransactions.forEach(tx => {
+    if (tx.month) seen.add(tx.month); // already "Apr 2026" format
+  });
+  Object.keys(transactions).forEach(m => {
+    if (transactions[m] && transactions[m].length > 0) seen.add(monthLabel(m)); // "Apr 2026"
+  });
 
-  // Sort in reverse chronological order using monthOrder
-  const months = [...monthOrder].reverse().filter(m => seen.has(m));
+  if (seen.size === 0) { container.innerHTML = ''; return; }
 
-  if (months.length === 0) { container.innerHTML = ''; return; }
+  // Sort newest first
+  const sorted = [...seen].sort((a, b) => {
+    const MONS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const parse = s => { const [mon, yr] = s.split(' '); return (parseInt(yr)||2026)*100 + MONS.indexOf(mon); };
+    return parse(b) - parse(a);
+  });
 
   container.innerHTML = `
     <button class="month-tab ${activeTxMonth === 'all' ? 'active' : ''}"
-      onclick="switchTxMonth('all', this)">All</button>
-    ${months.map(m => `
-      <button class="month-tab ${activeTxMonth === m ? 'active' : ''}"
-        onclick="switchTxMonth('${m}', this)">${m}</button>
+      onclick="switchTxMonth('all', this)">All time</button>
+    ${sorted.map(label => `
+      <button class="month-tab ${activeTxMonth === label ? 'active' : ''}"
+        onclick="switchTxMonth('${label}', this)">${label}</button>
     `).join('')}
   `;
 }
 
 function switchTxMonth(month, el) {
-  activeTxMonth = month;
+  activeTxMonth = month; // now a full label like "Apr 2026" or 'all'
   document.querySelectorAll('#tx-month-tabs .month-tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
-  // Sync hidden dropdown for getFilteredTxList
-  const sel = document.getElementById('tx-filter-month');
-  if (sel) { sel.innerHTML = `<option value="${month === 'all' ? 'all' : monthLabel(month)}">`; sel.value = month === 'all' ? 'all' : monthLabel(month); }
   renderTxPage();
 }
 
@@ -5741,6 +5801,52 @@ function addAllSelected() {
   updateSelectedCount();
   renderTransactions(); // re-render to show undo buttons
   showToast(`✓ ${count} transaction${count>1?'s':''} deducted`);
+}
+
+// ── Bulk delete all checked spending entries ──
+function deleteAllSelected() {
+  const checked = document.querySelectorAll('.tx-checkbox:checked:not(:disabled)');
+  if (!checked.length) { showToast('⚠ No entries selected'); return; }
+
+  // Collect origIdx values from txId (format: "MONTH-origIdx"), largest first so splice doesn't shift earlier indices
+  const toDelete = [];
+  checked.forEach(cb => {
+    const txId = cb.dataset.txid; // e.g. "Apr-3"
+    const parts = txId.split('-');
+    if (parts.length === 2) {
+      const month   = parts[0];
+      const origIdx = parseInt(parts[1]);
+      if (!isNaN(origIdx)) toDelete.push({ month, origIdx });
+    }
+  });
+
+  // Sort descending by origIdx so splicing doesn't affect earlier rows
+  toDelete.sort((a, b) => b.origIdx - a.origIdx);
+
+  let count = 0;
+  toDelete.forEach(({ month, origIdx }) => {
+    const txList = transactions[month];
+    if (!txList || origIdx >= txList.length) return;
+    const tx = txList[origIdx];
+    txList.splice(origIdx, 1);
+    if (tx && spendingData[month]) {
+      spendingData[month].total   = Math.max(0, (spendingData[month].total   || 0) - tx.amt);
+      spendingData[month].txCount = Math.max(0, (spendingData[month].txCount || 0) - 1);
+      const days = new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).getDate();
+      spendingData[month].daily = spendingData[month].txCount > 0 ? Math.round(spendingData[month].total / days) : 0;
+      const cat = tx.cat || 'Other';
+      if (spendingData[month].cats && spendingData[month].cats[cat]) {
+        spendingData[month].cats[cat] = Math.max(0, (spendingData[month].cats[cat] || 0) - tx.amt);
+        if (spendingData[month].cats[cat] === 0) delete spendingData[month].cats[cat];
+      }
+    }
+    count++;
+  });
+
+  fosSave();
+  renderSpendingPage();
+  try { renderTxPage(); } catch(e) {}
+  showToast(`✕ ${count} entr${count>1?'ies':'y'} deleted`);
 }
 
 function deductFromJar(txId, amt, btn, silent = false) {
@@ -7976,7 +8082,11 @@ function getFilteredTxList() {
     if (search && !tx.desc.toLowerCase().includes(search) && !tx.cat.toLowerCase().includes(search)) return false;
     if (catFilter !== 'all' && tx.cat !== catFilter) return false;
     if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
-    if (activeTxMonth !== 'all' && tx.month !== activeTxMonth) return false;
+    if (activeTxMonth !== 'all') {
+      // activeTxMonth is now a full label like "Apr 2026"
+      // tx.month may be "Apr 2026" (manualTx/import) — direct compare
+      if (tx.month !== activeTxMonth) return false;
+    }
     return true;
   });
 }
@@ -8057,25 +8167,33 @@ function renderTxPage() {
     }).join('');
   }
 
-  // Update metrics
-  const outflow  = filtered.filter(t => t.type === 'expense').reduce((s,t) => s+t.amt, 0);
-  const inflow   = filtered.filter(t => t.type === 'income').reduce((s,t) => s+t.amt, 0);
-  const net      = inflow - outflow;
-  const largest  = filtered.reduce((max, t) => t.amt > max.amt ? t : max, { amt: 0, desc: '—' });
+  // Update metrics — always show per-month totals
+  // When "All time" tab, use current month; otherwise use selected month
+  const metricMonth = activeTxMonth === 'all'
+    ? new Date().toLocaleString('en-HK', { month: 'short' }) + ' ' + new Date().getFullYear()
+    : activeTxMonth;
+
+  const allTx      = buildTxMasterList(); // full list (unfiltered by month) for metrics
+  const monthTx    = allTx.filter(t => t.month === metricMonth);
+  const outflow    = monthTx.filter(t => t.type === 'expense').reduce((s,t) => s+t.amt, 0);
+  const inflow     = monthTx.filter(t => t.type === 'income').reduce((s,t) => s+t.amt, 0);
+  const net        = inflow - outflow;
+  const largest    = monthTx.reduce((max, t) => t.amt > max.amt ? t : max, { amt: 0, desc: '—' });
+  const metricLabel = activeTxMonth === 'all' ? metricMonth : activeTxMonth;
 
   const el = id => document.getElementById(id);
   const setEl = (id, txt, color) => { const e = el(id); if (e) { e.textContent = txt; if (color) e.style.color = color; } };
 
   setEl('tx-total-out', 'HK$' + outflow.toLocaleString(), 'var(--red)');
-  setEl('tx-count-label', `— ${filtered.filter(t=>t.type==='expense').length} transactions`);
+  setEl('tx-count-label', `— ${monthTx.filter(t=>t.type==='expense').length} transactions · ${metricLabel}`);
   setEl('tx-total-in',  'HK$' + inflow.toLocaleString(),  'var(--green)');
-  setEl('tx-inflow-count', `— ${filtered.filter(t=>t.type==='income').length} income entries`);
+  setEl('tx-inflow-count', `— ${monthTx.filter(t=>t.type==='income').length} income entries · ${metricLabel}`);
   setEl('tx-net', (net >= 0 ? '+' : '') + 'HK$' + Math.abs(net).toLocaleString(), net >= 0 ? 'var(--green)' : 'var(--red)');
   setEl('tx-largest', 'HK$' + largest.amt.toLocaleString(), 'var(--amber)');
-  setEl('tx-largest-desc', largest.desc);
+  setEl('tx-largest-desc', largest.desc + (largest.amt > 0 ? ' · ' + metricLabel : ''));
   setEl('tx-shown-count', filtered.length);
-  setEl('tx-footer-out', 'Out: HK$' + outflow.toLocaleString());
-  setEl('tx-footer-in',  'In: HK$' + inflow.toLocaleString());
+  setEl('tx-footer-out', 'Out: HK$' + outflow.toLocaleString() + ' · ' + metricLabel);
+  setEl('tx-footer-in',  'In: HK$' + inflow.toLocaleString() + ' · ' + metricLabel);
 }
 
 function updateTxCat(txId, newCat) {
@@ -9438,34 +9556,80 @@ function confirmSyncImport() {
   let balMsg = '';
   if (syncAccountBalances && syncAccountBalances.length > 0) {
     let balUpdated = 0;
-    syncAccountBalances.forEach(ab => {
+
+    // Helper: flexible account matching — tries accountName first, then last4+currency, then last4
+    function findAcctMatch(ab, list) {
       const last4   = String(ab.accountLast4 || '').replace(/[^0-9]/g, '');
-      const type    = ab.accountType || '';
+      const curr    = (ab.currency || 'HKD').toUpperCase();
       const bankLow = (ab.bank || '').toLowerCase();
+      const nameLow = (ab.accountName || '').toLowerCase().trim();
+
+      // 1. Exact accountName match (most specific — handles HSBC HKD Savings vs Current)
+      if (nameLow) {
+        const m = list.find(b => b.name.toLowerCase().trim() === nameLow);
+        if (m) return m;
+      }
+      // 2. Partial name match — accountName keywords in b.name or vice versa
+      if (nameLow) {
+        const keywords = nameLow.split(/\s+/).filter(w => w.length > 2);
+        const m = list.find(b => {
+          const bn = b.name.toLowerCase();
+          return keywords.length > 1 && keywords.every(w => bn.includes(w));
+        });
+        if (m) return m;
+      }
+      // 3. last4 + currency (handles different banks with different last4)
+      if (last4 && curr) {
+        const m = list.find(b => b.last4 === last4 && (b.currency || 'HKD').toUpperCase() === curr);
+        if (m) return m;
+      }
+      // 4. last4 only
+      if (last4) {
+        const m = list.find(b => b.last4 === last4);
+        if (m) return m;
+      }
+      // 5. Bank name fallback
+      if (bankLow) {
+        const m = list.find(b => b.name.toLowerCase().includes(bankLow));
+        if (m) return m;
+      }
+      return null;
+    }
+
+    syncAccountBalances.forEach(ab => {
+      const type    = ab.accountType || '';
       const updDate = ab.statementDate || '';
 
       if (type === 'bank_account') {
-        // Match by last4, fallback by bank name in account name
-        const match = bankAccounts.find(b =>
-          (last4 && b.last4 === last4) ||
-          (bankLow && b.name.toLowerCase().includes(bankLow))
-        );
+        const match = findAcctMatch(ab, bankAccounts);
         if (match) {
           match.balance          = ab.balance;
+          match.currency         = ab.currency || match.currency || 'HKD';
           match.balanceUpdatedAt = updDate;
           balUpdated++;
+          console.log('✅ Balance updated:', match.name, '→', ab.balance, ab.currency, '(', updDate, ')');
+        } else {
+          console.warn('⚠ No match for bank account:', ab.accountName, 'last4:', ab.accountLast4, 'currency:', ab.currency);
         }
       } else if (type === 'credit_card') {
-        const match = creditCards.find(c =>
-          (last4 && c.last4 === last4) ||
-          (bankLow && c.name.toLowerCase().includes(bankLow))
-        );
+        const last4CC = String(ab.accountLast4 || '').replace(/[^0-9]/g, '');
+        const bankLow = (ab.bank || '').toLowerCase();
+        const nameLow = (ab.accountName || '').toLowerCase().trim();
+
+        // Credit card matching: try name first, then last4
+        let match = creditCards.find(c => nameLow && c.name.toLowerCase().trim() === nameLow);
+        if (!match && last4CC) match = creditCards.find(c => c.last4 === last4CC);
+        if (!match && bankLow)  match = creditCards.find(c => c.name.toLowerCase().includes(bankLow));
+
         if (match) {
           match.outstanding      = ab.balance;
           if (ab.creditLimit > 0) match.limit = ab.creditLimit;
           if (ab.dueDate)         match.dueDate = ab.dueDate;
           match.balanceUpdatedAt = updDate;
           balUpdated++;
+          console.log('✅ CC balance updated:', match.name, '→ outstanding:', ab.balance);
+        } else {
+          console.warn('⚠ No match for credit card:', ab.accountName, 'last4:', ab.accountLast4);
         }
       }
     });
@@ -9473,6 +9637,8 @@ function confirmSyncImport() {
       renderBankAccounts();
       renderCreditCards();
       balMsg = ` · ${balUpdated} balance${balUpdated !== 1 ? 's' : ''} updated`;
+    } else {
+      console.warn('⚠ syncAccountBalances had entries but 0 matched. Check account names/last4 match between Sheet and app.');
     }
   }
 
@@ -9586,6 +9752,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   try { updateSavings(); } catch(e) { console.warn('updateSavings:', e); }
   try { refreshJarAddStates(); } catch(e) { console.warn('refreshJarAddStates:', e); }
+  try { initJarButtonLabels(); } catch(e) { console.warn('initJarButtonLabels:', e); }
   try { renderSpendingPage(); } catch(e) { console.warn('renderSpendingPage:', e); }
   try { renderBills(); } catch(e) { console.warn('renderBills:', e); }
   try { renderSubscriptions(); } catch(e) { console.warn('renderSubscriptions:', e); }
