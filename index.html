@@ -2147,8 +2147,7 @@
               <option value="Other">Other</option>
             </select>
             <button class="allocate-btn" onclick="addAllSelected()" id="s3-add-all-btn">+ Add Selected</button>
-            <button onclick="deleteAllSelected()" style="background:var(--red-dim); border:1px solid rgba(247,95,95,0.25); color:var(--red); border-radius:6px; padding:4px 10px; font-family:var(--font-mono); font-size:10px; cursor:pointer; white-space:nowrap;">✕ Delete Selected</button>
-            <button onclick="deleteAllSelected()" style="padding:5px 12px; border-radius:6px; border:1px solid rgba(247,95,95,0.3); background:var(--red-dim); color:var(--red); font-family:var(--font-mono); font-size:10px; cursor:pointer; transition:all 0.15s;" id="s3-del-all-btn">✕ Delete Selected</button>
+            <button onclick="deleteAllSelected()" style="background:var(--red-dim); border:1px solid rgba(247,95,95,0.25); color:var(--red); border-radius:6px; padding:4px 10px; font-family:var(--font-mono); font-size:10px; cursor:pointer; white-space:nowrap;" id="s3-del-all-btn">✕ Delete Selected</button>
           </div>
         </div>
 
@@ -9338,15 +9337,14 @@ function processSyncRows(allRows, mortgageUpdates, accountBalances) {
 // Tab name IS the account name, e.g. "HSBC Everymile Visa", "ZA Bank Savings"
 // Bank column in the data gives the bank name separately
 function parseAccountTabName(tabName, bankHint) {
-  // tabName = full account name e.g. "HSBC Everymile Visa"
-  // Try to extract last 4 digits if present (e.g. "Visa 6593")
-  // Try to find last4 anywhere in tabName (not just end), then try bank field
-  const last4Match = tabName.match(/\b(\d{4})\b/) || (bankHint||'').match(/\b(\d{4})\b/);
+  // tabName = full account name e.g. "HSBC Savings 833", "HSBC Everymile Visa 6593"
+  // Match last 3 OR 4 digit number in name (HSBC bank accounts use 3 digits, cards use 4)
+  const last4Match = tabName.match(/\b(\d{3,4})\b(?!.*\d{3,4})/) // rightmost 3-4 digit number
+    || (bankHint||'').match(/\b(\d{3,4})\b/);
   const last4 = last4Match ? last4Match[1] : '';
-  const bank  = bankHint || tabName.split(' ')[0]; // first word as bank if no hint
+  const bank  = bankHint || tabName.split(' ')[0];
 
-  // Guess if it's a credit card vs bank account by keywords
-  const ccKeywords = ['visa', 'mastercard', 'amex', 'card', 'credit', 'everymile', 'platinum', 'gold', 'black', 'premier'];
+  const ccKeywords = ['visa', 'mastercard', 'amex', 'card', 'credit', 'everymile', 'platinum', 'gold', 'black', 'premier', 'mmpower', 'unionpay', 'cup', 'cathay', 'simply cash'];
   const isCc = ccKeywords.some(k => tabName.toLowerCase().includes(k));
 
   return { bank, last4, isCc, tabName, accountName: tabName };
@@ -9481,24 +9479,36 @@ function confirmSyncImport() {
     );
     if (alreadyExists) return;
 
+    // Look up currency from _AccountBalances for this account (by last4 + name match)
+    const abInfo = syncAccountBalances.find(ab => {
+      const abLast4 = String(ab.accountLast4 || '').replace(/[^0-9]/g, '');
+      return abLast4 === (acct.last4 || '') || (ab.accountName || '').toLowerCase().trim() === accountName.toLowerCase().trim();
+    });
+    const detectedCurrency = (abInfo && abInfo.currency) ? abInfo.currency.toUpperCase() : 'HKD';
+
     if (acct.isCc) {
       creditCards.push({
         id:          ++accIdCounter,
         name:        accountName,
         bank:        acct.bank,
         last4:       acct.last4 || '????',
-        limit:       0,
-        outstanding: 0,
+        limit:       (abInfo && abInfo.creditLimit) || 0,
+        outstanding: (abInfo && abInfo.balance)     || 0,
         statementDay: '',
+        currency:    detectedCurrency,
       });
     } else {
+      // Detect account type from name keywords
+      const nameLc = accountName.toLowerCase();
+      const accType = nameLc.includes('current') || nameLc.includes('checking') ? 'Current' : 'Savings';
       bankAccounts.push({
         id:       ++accIdCounter,
         name:     accountName,
-        type:     'Savings',
+        type:     accType,
         last4:    acct.last4 || '????',
-        balance:  0,
-        currency: 'HKD',
+        balance:  (abInfo && abInfo.balance) || 0,
+        currency: detectedCurrency,
+        balanceUpdatedAt: (abInfo && abInfo.statementDate) || '',
       });
     }
   });
@@ -9558,41 +9568,79 @@ function confirmSyncImport() {
     let balUpdated = 0;
 
     // Helper: flexible account matching — tries accountName first, then last4+currency, then last4
+    // Account type keywords that are semantically meaningful (distinguish savings vs current vs fcy)
+    const ACCT_TYPE_WORDS = ['savings','saving','current','checking','fcy','usd','eur','gbp','rmb','cny','deposit','integrated'];
+
     function findAcctMatch(ab, list) {
       const last4   = String(ab.accountLast4 || '').replace(/[^0-9]/g, '');
       const curr    = (ab.currency || 'HKD').toUpperCase();
       const bankLow = (ab.bank || '').toLowerCase();
       const nameLow = (ab.accountName || '').toLowerCase().trim();
 
-      // 1. Exact accountName match (most specific — handles HSBC HKD Savings vs Current)
+      // Scoring helper: count shared meaningful words between sheet name and app name
+      function sharedScore(sheetName, appName) {
+        const sw = sheetName.split(/\s+/);
+        const aw = appName.split(/\s+/);
+        // Must share at least one type-keyword (savings/current/fcy/usd etc) if sheet has one
+        const sheetTypeWords = sw.filter(w => ACCT_TYPE_WORDS.includes(w));
+        const appTypeWords   = aw.filter(w => ACCT_TYPE_WORDS.includes(w));
+        const sharedTypeWords = sheetTypeWords.filter(w => appTypeWords.includes(w) || appName.includes(w));
+        if (sheetTypeWords.length > 0 && sharedTypeWords.length === 0) return -1; // type mismatch
+        // Count shared non-trivial words
+        const shared = sw.filter(w => w.length > 2 && aw.some(aw => aw.includes(w) || w.includes(aw)));
+        return shared.length + sharedTypeWords.length * 2;
+      }
+
+      // 1. Exact accountName match
       if (nameLow) {
         const m = list.find(b => b.name.toLowerCase().trim() === nameLow);
         if (m) return m;
       }
-      // 2. Partial name match — accountName keywords in b.name or vice versa
+
+      // 2. Keyword-score match — finds best match from list using shared meaningful words
+      //    Also checks currency matches to break ties between same-last4 accounts
       if (nameLow) {
-        const keywords = nameLow.split(/\s+/).filter(w => w.length > 2);
-        const m = list.find(b => {
-          const bn = b.name.toLowerCase();
-          return keywords.length > 1 && keywords.every(w => bn.includes(w));
+        let best = null, bestScore = 0;
+        list.forEach(b => {
+          const bn    = b.name.toLowerCase().trim();
+          const score = sharedScore(nameLow, bn);
+          // Bonus for currency match
+          const currBonus = curr && (b.currency || 'HKD').toUpperCase() === curr ? 1 : 0;
+          // Bonus for last4 match
+          const l4Bonus = last4 && b.last4 === last4 ? 1 : 0;
+          const total = score + currBonus + l4Bonus;
+          if (total > bestScore && score >= 0) { best = b; bestScore = total; }
         });
-        if (m) return m;
+        if (best && bestScore >= 2) return best; // need at least 2 shared signals to trust the match
       }
-      // 3. last4 + currency (handles different banks with different last4)
+
+      // 3. last4 + currency — only if exactly ONE account matches (avoids HSBC 833 HKD collision)
       if (last4 && curr) {
-        const m = list.find(b => b.last4 === last4 && (b.currency || 'HKD').toUpperCase() === curr);
-        if (m) return m;
+        const matches = list.filter(b => b.last4 === last4 && (b.currency || 'HKD').toUpperCase() === curr);
+        if (matches.length === 1) return matches[0];
+        // Multiple accounts share last4+currency → try currency alone with type keyword
+        if (matches.length > 1 && nameLow) {
+          // Pick the one whose type keyword best matches the sheet account name
+          const typeWord = ACCT_TYPE_WORDS.find(w => nameLow.includes(w));
+          if (typeWord) {
+            const tm = matches.find(b => b.name.toLowerCase().includes(typeWord));
+            if (tm) return tm;
+          }
+        }
       }
-      // 4. last4 only
+
+      // 4. last4 only — only if exactly ONE account matches
       if (last4) {
-        const m = list.find(b => b.last4 === last4);
-        if (m) return m;
+        const matches = list.filter(b => b.last4 === last4);
+        if (matches.length === 1) return matches[0];
       }
-      // 5. Bank name fallback
+
+      // 5. Bank name fallback (only if list has exactly one account from that bank)
       if (bankLow) {
-        const m = list.find(b => b.name.toLowerCase().includes(bankLow));
-        if (m) return m;
+        const matches = list.filter(b => b.name.toLowerCase().includes(bankLow));
+        if (matches.length === 1) return matches[0];
       }
+
       return null;
     }
 
