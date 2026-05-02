@@ -9575,53 +9575,24 @@ function confirmSyncImport() {
       const last4   = String(ab.accountLast4 || '').replace(/[^0-9]/g, '');
       const curr    = (ab.currency || 'HKD').toUpperCase();
       const bankLow = (ab.bank || '').toLowerCase();
-      const nameLow = (ab.accountName || '').toLowerCase().trim();
+      const nameTrim = (ab.accountName || '').trim();
 
-      // Scoring helper: count shared meaningful words between sheet name and app name
-      function sharedScore(sheetName, appName) {
-        const sw = sheetName.split(/\s+/);
-        const aw = appName.split(/\s+/);
-        // Must share at least one type-keyword (savings/current/fcy/usd etc) if sheet has one
-        const sheetTypeWords = sw.filter(w => ACCT_TYPE_WORDS.includes(w));
-        const appTypeWords   = aw.filter(w => ACCT_TYPE_WORDS.includes(w));
-        const sharedTypeWords = sheetTypeWords.filter(w => appTypeWords.includes(w) || appName.includes(w));
-        if (sheetTypeWords.length > 0 && sharedTypeWords.length === 0) return -1; // type mismatch
-        // Count shared non-trivial words
-        const shared = sw.filter(w => w.length > 2 && aw.some(aw => aw.includes(w) || w.includes(aw)));
-        return shared.length + sharedTypeWords.length * 2;
-      }
-
-      // 1. Exact accountName match
-      if (nameLow) {
-        const m = list.find(b => b.name.toLowerCase().trim() === nameLow);
+      // 1. Exact name match — primary strategy now that _AccountBalances uses tab names
+      if (nameTrim) {
+        const m = list.find(b => b.name.trim() === nameTrim);
         if (m) return m;
+        // Case-insensitive fallback
+        const mci = list.find(b => b.name.trim().toLowerCase() === nameTrim.toLowerCase());
+        if (mci) return mci;
       }
 
-      // 2. Keyword-score match — finds best match from list using shared meaningful words
-      //    Also checks currency matches to break ties between same-last4 accounts
-      if (nameLow) {
-        let best = null, bestScore = 0;
-        list.forEach(b => {
-          const bn    = b.name.toLowerCase().trim();
-          const score = sharedScore(nameLow, bn);
-          // Bonus for currency match
-          const currBonus = curr && (b.currency || 'HKD').toUpperCase() === curr ? 1 : 0;
-          // Bonus for last4 match
-          const l4Bonus = last4 && b.last4 === last4 ? 1 : 0;
-          const total = score + currBonus + l4Bonus;
-          if (total > bestScore && score >= 0) { best = b; bestScore = total; }
-        });
-        if (best && bestScore >= 2) return best; // need at least 2 shared signals to trust the match
-      }
-
-      // 3. last4 + currency — only if exactly ONE account matches (avoids HSBC 833 HKD collision)
+      // 2. last4 + currency — only if exactly ONE account matches (avoids HSBC 833 HKD collision)
       if (last4 && curr) {
         const matches = list.filter(b => b.last4 === last4 && (b.currency || 'HKD').toUpperCase() === curr);
         if (matches.length === 1) return matches[0];
-        // Multiple accounts share last4+currency → try currency alone with type keyword
-        if (matches.length > 1 && nameLow) {
-          // Pick the one whose type keyword best matches the sheet account name
-          const typeWord = ACCT_TYPE_WORDS.find(w => nameLow.includes(w));
+        // Multiple matches: try to disambiguate by account type keyword in name
+        if (matches.length > 1 && nameTrim) {
+          const typeWord = ACCT_TYPE_WORDS.find(w => nameTrim.toLowerCase().includes(w));
           if (typeWord) {
             const tm = matches.find(b => b.name.toLowerCase().includes(typeWord));
             if (tm) return tm;
@@ -9629,13 +9600,13 @@ function confirmSyncImport() {
         }
       }
 
-      // 4. last4 only — only if exactly ONE account matches
+      // 3. last4 only (if unique)
       if (last4) {
         const matches = list.filter(b => b.last4 === last4);
         if (matches.length === 1) return matches[0];
       }
 
-      // 5. Bank name fallback (only if list has exactly one account from that bank)
+      // 4. Bank name fallback (if unique)
       if (bankLow) {
         const matches = list.filter(b => b.name.toLowerCase().includes(bankLow));
         if (matches.length === 1) return matches[0];
