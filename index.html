@@ -1209,15 +1209,89 @@
   .loan-empty-sub   { font-family: var(--font-mono); font-size: 11px; }
 
   @media (max-width: 768px) {
-    .sidebar { width: 56px; }
+    /* ── Layout ── */
+    .sidebar { width: 56px; min-width: 56px; }
     .logo-text, .logo-sub, .nav-label, .nav-item span, .hkd-text, .hkd-curr { display: none; }
     .nav-item { justify-content: center; padding: 10px; }
     .nav-badge { display: none; }
-    .metrics-row { grid-template-columns: 1fr 1fr; }
+    .content { padding: 12px 10px; }
+    .topbar { padding: 0 10px; gap: 6px; }
+
+    /* ── Topbar buttons ── */
+    .topbar-btn { padding: 5px 8px; font-size: 10px; }
+    #sync-btn span, #topbar-import-btn span { display: none; }
+
+    /* ── Dashboard grids ── */
+    .metrics-row { grid-template-columns: 1fr 1fr; gap: 8px; }
     .grid-2, .grid-3 { grid-template-columns: 1fr; }
-    .jars-grid { grid-template-columns: 1fr 1fr; }
-    .content { padding: 16px; }
-    .topbar { padding: 0 16px; }
+    .jars-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .metric-card { padding: 12px; }
+
+    /* ── Jar cards — stack dual buttons ── */
+    .jar-balance-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .jar-add-btn { font-size: 8px; padding: 2px 5px; }
+
+    /* ── Transaction page ── */
+    #tx-col-hdrs { display: none !important; }
+    #tx-full-list .acc-row {
+      display: flex !important;
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 12px;
+    }
+    #tx-full-list .acc-row > div { width: 100%; }
+
+    /* ── Spending page tx rows ── */
+    .tx-row {
+      grid-template-columns: 24px 70px 1fr 70px 60px !important;
+      font-size: 11px;
+    }
+    .tx-account, #sp-hdr-account { display: none; }
+    #sp-hdr-date { grid-column: 2; }
+
+    /* ── Account rows ── */
+    .acc-row { gap: 0; padding: 10px 10px; }
+
+    /* ── Subscription rows ── */
+    .sub-item { grid-template-columns: 1fr auto auto !important; gap: 8px; }
+    .sub-item > div:nth-child(4),
+    .sub-item > div:nth-child(5) { display: none; }
+
+    /* ── Bills ── */
+    .bill-item { grid-template-columns: 1fr auto auto !important; }
+    .bill-item-cat { display: none; }
+
+    /* ── Modals ── */
+    .sync-modal-inner, .import-modal-box {
+      width: 96vw !important;
+      max-width: 96vw !important;
+      padding: 16px !important;
+    }
+
+    /* ── Forms — stack grid inputs ── */
+    [style*="grid-template-columns: 1fr 100px 100px 1fr"],
+    [style*="grid-template-columns:1fr 100px 100px 1fr"],
+    [style*="grid-template-columns: 1fr 1fr 100px"],
+    [style*="grid-template-columns:1fr 1fr 100px"] {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+    }
+    [style*="grid-template-columns: 1fr 1fr"] {
+      grid-template-columns: 1fr !important;
+    }
+
+    /* ── Page title ── */
+    h1 { font-size: 20px; }
+  }
+
+  /* ── Very small phones (< 400px) ── */
+  @media (max-width: 400px) {
+    .sidebar { width: 46px; min-width: 46px; }
+    .nav-item { padding: 8px 0; }
+    .content { padding: 8px 6px; }
+    .metrics-row { grid-template-columns: 1fr; }
+    .jars-grid { grid-template-columns: 1fr; }
   }
 
   /* ── ONBOARDING WIZARD ── */
@@ -2781,6 +2855,8 @@
               <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); letter-spacing:0.1em; margin-bottom:5px;">BILLING CYCLE</div>
               <select id="sub-cycle-input" style="width:100%; background:var(--bg-hover); border:1px solid var(--border); border-radius:7px; padding:8px 10px; font-family:var(--font-mono); font-size:12px; color:var(--text-primary); outline:none; cursor:pointer;">
                 <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly (every 3 months)</option>
+                <option value="semi-annual">Semi-annual (every 6 months)</option>
                 <option value="annual">Annual</option>
               </select>
             </div>
@@ -6272,10 +6348,13 @@ function executePayment(kind, entity, opts) {
     entity.lastPaidDate = new Date().toISOString().slice(0,10);
     entity.paymentHistory = entity.paymentHistory || [];
     entity.paymentHistory.push({ date: entity.lastPaidDate, amt: amount, jar: jarKey, account: accountLabel });
-    // Advance nextDate by 1 month or 1 year
+    // Advance nextDate by the correct interval
     const nd = new Date(entity.nextDate);
-    if (entity.cycle === 'annual') nd.setFullYear(nd.getFullYear() + 1);
-    else nd.setMonth(nd.getMonth() + 1);
+    const cyc = (entity.cycle || 'monthly').toLowerCase();
+    if      (cyc === 'annual')      nd.setFullYear(nd.getFullYear() + 1);
+    else if (cyc === 'semi-annual') nd.setMonth(nd.getMonth() + 6);
+    else if (cyc === 'quarterly')   nd.setMonth(nd.getMonth() + 3);
+    else                            nd.setMonth(nd.getMonth() + 1);
     entity.nextDate = nd.toISOString().slice(0,10);
   }
 
@@ -6436,9 +6515,10 @@ function renderSubscriptions() {
       const daysLabel = days < 0 ? `${Math.abs(days)}d ago` : days === 0 ? 'Today' : `${days}d`;
       const color = subCatColor(s.cat);
 
-      const displayAmt = s.cycle === 'annual'
-        ? `HK$${s.amt.toLocaleString()} <span style="font-size:9px; color:var(--text-tertiary);">/yr</span>`
-        : `HK$${s.amt.toLocaleString()} <span style="font-size:9px; color:var(--text-tertiary);">/mo</span>`;
+      const cyclePerYear = { monthly: 12, quarterly: 4, 'semi-annual': 2, annual: 1 };
+      const cycleLabel   = { monthly: '/mo', quarterly: '/qtr', 'semi-annual': '/6mo', annual: '/yr' };
+      const cycleBadge   = { monthly: '🔄 Monthly', quarterly: '📅 Quarterly', 'semi-annual': '📅 Semi-annual', annual: '📅 Annual' };
+      const displayAmt = `HK$${s.amt.toLocaleString()} <span style="font-size:9px; color:var(--text-tertiary);">${cycleLabel[s.cycle] || '/mo'}</span>`;
 
       const cancelLabel = s.cancelDays > 0
         ? `<span class="${showCancel ? 'days-badge urgent' : 'days-badge ok'}">${showCancel ? '⚠ Cancel now!' : `${s.cancelDays}d before`}</span>`
@@ -6457,7 +6537,7 @@ function renderSubscriptions() {
           </div>
           <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
             <span class="days-badge ok" style="background:${color}15; color:${color}; border-color:${color}30;">
-              ${s.cycle === 'monthly' ? '🔄 Monthly' : '📅 Annual'}
+              ${cycleBadge[s.cycle] || '🔄 Monthly'}
             </span>
             ${statusBtn}
           </div>
@@ -6488,6 +6568,8 @@ function renderSubscriptions() {
               <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-tertiary); margin-bottom:4px;">CYCLE</div>
               <select id="se-cycle-${s.id}" style="width:100%; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:6px 8px; font-family:var(--font-mono); font-size:11px; color:var(--text-primary); outline:none;">
                 <option value="monthly" ${s.cycle==='monthly'?'selected':''}>Monthly</option>
+                <option value="quarterly" ${s.cycle==='quarterly'?'selected':''}>Quarterly</option>
+                <option value="semi-annual" ${s.cycle==='semi-annual'?'selected':''}>Semi-annual</option>
                 <option value="annual" ${s.cycle==='annual'?'selected':''}>Annual</option>
               </select>
             </div>
@@ -6531,16 +6613,29 @@ function renderSubscriptions() {
     document.getElementById('sub-breakdown').style.display = 'block';
   }
 
-  // Metrics
+  // Metrics — convert all cycles to monthly equivalent
+  const toMonthly = s => {
+    const cyc = (s.cycle || 'monthly').toLowerCase();
+    if (cyc === 'annual')      return s.amt / 12;
+    if (cyc === 'semi-annual') return s.amt / 6;
+    if (cyc === 'quarterly')   return s.amt / 3;
+    return s.amt; // monthly
+  };
+  const toAnnual = s => {
+    const cyc = (s.cycle || 'monthly').toLowerCase();
+    if (cyc === 'annual')      return s.amt;
+    if (cyc === 'semi-annual') return s.amt * 2;
+    if (cyc === 'quarterly')   return s.amt * 4;
+    return s.amt * 12;
+  };
+
   const monthlySubs = subscriptions.filter(s => s.cycle === 'monthly');
   const annualSubs  = subscriptions.filter(s => s.cycle === 'annual');
-  const monthlyAmt  = monthlySubs.reduce((s,x) => s + x.amt, 0);
-  const annualMonthly = annualSubs.reduce((s,x) => s + x.amt / 12, 0);
-  const effectiveMonthly = monthlyAmt + annualMonthly;
-  const annualTotal = monthlyAmt * 12 + annualSubs.reduce((s,x) => s + x.amt, 0);
+  const effectiveMonthly = subscriptions.reduce((sum, s) => sum + toMonthly(s), 0);
+  const annualTotal      = subscriptions.reduce((sum, s) => sum + toAnnual(s), 0);
 
   const urgentSubs = subscriptions.filter(s => daysUntil(s.nextDate) <= 5 && daysUntil(s.nextDate) >= 0);
-  const urgTotal   = urgentSubs.reduce((s,x) => s + (x.cycle === 'monthly' ? x.amt : x.amt / 12), 0);
+  const urgTotal   = urgentSubs.reduce((sum, s) => sum + toMonthly(s), 0);
 
   document.getElementById('sub-monthly-total').textContent  = 'HK$' + Math.round(effectiveMonthly).toLocaleString();
   document.getElementById('sub-monthly-count').textContent  = `— ${subscriptions.length} active`;
@@ -6553,8 +6648,8 @@ function renderSubscriptions() {
   document.getElementById('sub-monthly-tag').textContent = monthlySubs.length + ' monthly';
   document.getElementById('sub-annual-tag').textContent  = annualSubs.length + ' annual';
 
-  document.getElementById('sub-breakdown-monthly').textContent  = 'HK$' + monthlyAmt.toLocaleString();
-  document.getElementById('sub-breakdown-annual').textContent   = 'HK$' + Math.round(annualMonthly).toLocaleString();
+  document.getElementById('sub-breakdown-monthly').textContent  = 'HK$' + Math.round(monthlySubs.reduce((s,x) => s+x.amt, 0)).toLocaleString();
+  document.getElementById('sub-breakdown-annual').textContent   = 'HK$' + Math.round(annualSubs.reduce((s,x) => s+x.amt/12, 0) + subscriptions.filter(s=>s.cycle==='quarterly').reduce((s,x)=>s+x.amt/3,0) + subscriptions.filter(s=>s.cycle==='semi-annual').reduce((s,x)=>s+x.amt/6,0)).toLocaleString();
   document.getElementById('sub-breakdown-effective').textContent = 'HK$' + Math.round(effectiveMonthly).toLocaleString();
 
   // Nav badge
